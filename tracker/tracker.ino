@@ -3,13 +3,13 @@
 // Basic demo for accelerometer readings from Adafruit MPU6050
 
 #include <PrintEx.h>
-#include <Adafruit_HMC5883_U.h>
+#include <QMC5883LCompass.h>
 #include <Adafruit_MPU6050.h>
 #include <Adafruit_Sensor.h>
 #include <Wire.h>
 
 Adafruit_MPU6050 mpu;
-Adafruit_HMC5883_Unified mag;
+QMC5883LCompass mag;
 
 typedef struct {
   float x;
@@ -31,7 +31,7 @@ static float v3_len2(const V3 x) { return x.x * x.x + x.y * x.y + x.z * x.z; };
 static float v3_dist(const V3 x, const V3 y) { return v3_len(v3_sub(x, y)); };
 static float v3_dist2(const V3 x, const V3 y) { return v3_len2(v3_sub(x, y)); };
 
-#define ACCEL_BUFFER_SIZE         8
+#define ACCEL_BUFFER_SIZE         2
 #define ACCEL_GUESS_AGGRESSIVNESS 0.002f
 #define ACCEL_GUESS_MAX_LEN       6.0f
 #define ACCEL_ESTIMATED_GRAVITY   9.85f
@@ -42,8 +42,8 @@ accel calibrate -0.654,  0.070,  7.055
 gyro  calibrate -0.026,  0.036, -0.020
 accel guess     0.648,  0.576, -2.755
 */
-const V3 accel_offset = {0.648,  0.576, -2.755};
-const V3 gyro_offset = {-0.026,  0.036, -0.020};
+const static V3 accel_offset = {0.648,  0.576, -2.755};
+const static V3 gyro_offset = {-0.026,  0.036, -0.020};
 
 V3 accel_data[ACCEL_BUFFER_SIZE];
 float accel_progress = 0.0;
@@ -60,6 +60,8 @@ V3 RX = {1, 0, 0};
 V3 RY = {0, 1, 0};
 V3 RZ = {0, 0, 1};
 V3 magnet = {0, 0, 0};
+V3 magnet_max = {0, 0, 0};
+V3 magnet_min = {0, 0, 0};
 int n = 0;
 unsigned long next_tick;
 
@@ -70,10 +72,7 @@ void setup(void) {
     serial.printf("Failed to find MPU6050 chip\n");
     while (1) {}
   }
-  if(!mag.begin()) {
-    serial.printf("Failed to find HMC5883 chip\n");
-    while (1) {}
-  }
+  mag.init(); // Detect QMC5883L presence?
 
   mpu.setAccelerometerRange(MPU6050_RANGE_2_G);
   mpu.setGyroRange(MPU6050_RANGE_500_DEG);
@@ -208,6 +207,9 @@ void print_stats() {
   serial.printf("RY  %6.3f, %6.3f, %6.3f\n", RY);
   serial.printf("RZ  %6.3f, %6.3f, %6.3f\n", RZ);
   serial.printf("magnet  %6.3f, %6.3f, %6.3f  %6.3f\n", magnet, v3_len(magnet));
+  serial.printf("magnet+ %6.3f, %6.3f, %6.3f\n", magnet_max);
+  serial.printf("magnet- %6.3f, %6.3f, %6.3f\n", magnet_min);
+  serial.printf("size %d\n", sizeof(V3));
   serial.printf("\n");
 }
 
@@ -231,9 +233,15 @@ void read_accel() {
 }
 
 void read_magnet() {
-  sensors_event_t event;
-  mag.getEvent(&event);
-  magnet = { event.magnetic.x, event.magnetic.y, event.magnetic.z };
+  mag.read();
+  magnet = { mag.getX(), mag.getY(), mag.getZ() };
+  magnet_max.x = max(magnet_max.x, magnet.x);
+  magnet_max.y = max(magnet_max.y, magnet.y);
+  magnet_max.z = max(magnet_max.z, magnet.z);
+
+  magnet_min.x = min(magnet_min.x, magnet.x);
+  magnet_min.y = min(magnet_min.y, magnet.y);
+  magnet_min.z = min(magnet_min.z, magnet.z);
 }
 
 void loop() {
