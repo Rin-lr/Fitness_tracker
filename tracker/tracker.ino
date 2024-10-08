@@ -70,6 +70,7 @@ static V3f v3f_mul(const V3f x, const V3f y) { return (V3f){ x.x * y.x, x.y * y.
 static V3f v3f_div(const V3f x, const V3f y) { return (V3f){ x.x / y.x, x.y / y.y, x.z / y.z }; }
 static V3f v3f_cross(const V3f x, const V3f y) { return (V3f){ x.y*y.z-x.z*y.y, x.z*y.x-x.x*y.z, x.x*y.y-x.y*y.x }; }
 static V3f v3f_scale(const V3f x, float y) { return (V3f){ x.x * y, x.y * y, x.z * y }; }
+static V3f v3f_norm(const V3f x) { return v3f_scale(x, 1.0f / v3f_len(x)); };
 static float v3f_dot(const V3f x, const V3f y) { return x.x * y.x + x.y * y.y + x.z * y.z; };
 static float v3f_len(const V3f x) { return sqrtf(x.x * x.x + x.y * x.y + x.z * x.z); };
 static float v3f_len2(const V3f x) { return x.x * x.x + x.y * x.y + x.z * x.z; };
@@ -101,7 +102,7 @@ gyro  calibrate -0.026,  0.036, -0.020
 accel guess     0.648,  0.576, -2.755
 */
 const static V3 accel_offset = {to_fixed16( 0.648),  to_fixed16(0.576), to_fixed16(-2.755)};
-const static V3 gyro_offset =  {to_fixed16(-0.026),  to_fixed16(0.036), to_fixed16(-0.020)};
+const static V3f gyro_offset =  {-0.027, 0.034, -0.022};
 
 static fixed16 accel_progress = 0;
 static fixed16 linear_movement = 0;
@@ -111,18 +112,26 @@ static V3 accel = {0, 0, 0};
 static V3 accel_max = {0, 0, 0};
 static V3 accel_min = {0, 0, 0};
 static V3 accel_guess = {to_fixed16(0.648f), to_fixed16(-0.031), to_fixed16(-3.676f)};
-static V3 gyro_raw = {0, 0, 0};
-static V3 gyro = {0, 0, 0};
+static V3f gyro_raw = {0, 0, 0};
+static V3f gyro = {0, 0, 0};
 static V3f RX = {1, 0, 0};
 static V3f RY = {0, 1, 0};
 static V3f RZ = {0, 0, 1};
+static V3 magnet_inital_raw = {0, 0, 0};
 static V3 magnet_raw = {0, 0, 0};
 static V3 magnet = {0, 0, 0};
-static V3 magnet_max = {FIX_MIN, FIX_MIN, FIX_MIN};
-static V3 magnet_min = {FIX_MAX, FIX_MAX, FIX_MAX};
+//static V3 magnet_max = { FIX_MIN, FIX_MIN, FIX_MIN }; // {to_fixed16(18.467), to_fixed16(-12.686), to_fixed16(18.168)};
+//static V3 magnet_min = { FIX_MAX, FIX_MAX, FIX_MAX }; // {to_fixed16(-4.805), to_fixed16(-36.055), to_fixed16(-4.854)};
+static V3 magnet_max = {to_fixed16(18.467), to_fixed16(-12.686), to_fixed16(18.168)};
+static V3 magnet_min = {to_fixed16(-4.805), to_fixed16(-36.055), to_fixed16(-4.854)};
 static V3 magnet_guess = {0, 0, 0};
 static uint8_t n = 0;
 static uint32_t next_tick; // TODO: Upgrade to 64 bit?
+static float gx_err = 0;
+static float gy_err = 0;
+static float gz_err = 0;
+static V3f g_adj = {0, 0, 0};
+static V3f angles = {0, 0, 0};
 
 static int i2c_detect(int id) {
   Wire.beginTransmission(id);
@@ -244,9 +253,9 @@ static void compute_angular_movement() {
 // https://web.archive.org/web/20120602094634/http://gentlenav.googlecode.com/files/DCMDraft2.pdf
 static void compute_angles() {
   const float delta = 1.0f / 100.0f;
-  float gx = to_float(gyro.x) * delta;
-  float gy = to_float(gyro.y) * delta;
-  float gz = to_float(gyro.z) * delta;
+  float gx = gyro.x * delta;
+  float gy = gyro.y * delta;
+  float gz = gyro.z * delta;
 
   V3f newRX = {
     RX.x + RY.x * gz - RZ.x * gy,
@@ -267,10 +276,13 @@ static void compute_angles() {
   V3f orthRX = v3f_sub(newRX, v3f_scale(newRY, error*0.5f));
   V3f orthRY = v3f_sub(newRY, v3f_scale(newRX, error*0.5f));
   V3f orthRZ = v3f_cross(orthRX, orthRY);
-  
+
   RX = v3f_scale(orthRX, 0.5f*(3.0f-v3f_len2(orthRX)));
   RY = v3f_scale(orthRY, 0.5f*(3.0f-v3f_len2(orthRY)));
   RZ = v3f_scale(orthRZ, 0.5f*(3.0f-v3f_len2(orthRZ)));
+  /*RX = v3f_norm(RX);
+  RY = v3f_norm(RY);
+  RZ = v3f_norm(RZ);*/
 }
 
 static void print_stats() {
@@ -278,17 +290,21 @@ static void print_stats() {
   serial.printf("accelr  %6.3f, %6.3f, %6.3f\n", v3_to_floats(accel_raw));
   serial.printf("accel+  %6.3f, %6.3f, %6.3f\n", v3_to_floats(accel_max));
   serial.printf("accel-  %6.3f, %6.3f, %6.3f\n", v3_to_floats(accel_min));
-  serial.printf("accel guess    %6.3f, %6.3f, %6.3f\n", v3_to_floats(accel_guess));
-  serial.printf("gyror   %6.3f, %6.3f, %6.3f\n", v3_to_floats(gyro_raw));
-  serial.printf("gyro    %6.3f, %6.3f, %6.3f\n", v3_to_floats(gyro));
-  serial.printf("ang mov %6.3f\n", to_float(angular_movement));*/
-  serial.printf("RX  %6.3f, %6.3f, %6.3f\n", RX);
-  serial.printf("RY  %6.3f, %6.3f, %6.3f\n", RY);
-  serial.printf("RZ  %6.3f, %6.3f, %6.3f\n", RZ);
+  serial.printf("accel guess    %6.3f, %6.3f, %6.3f\n", v3_to_floats(accel_guess));*/
+  serial.printf("gyror   %6.3f, %6.3f, %6.3f\n", gyro_raw);
+  serial.printf("gyro    %6.3f, %6.3f, %6.3f\n", gyro);
+  serial.printf("ang mov %6.3f\n", to_float(angular_movement));
+  serial.printf("gyro error  %6.3f, %6.3f, %6.3f\n", gx_err, gy_err, gz_err);
+  //serial.printf("gyro adj to  %6.3f, %6.3f, %6.3f\n", g_adj);
+  serial.printf("angles  %6.3f, %6.3f, %6.3f degrees\n", angles);
+  serial.printf("RX  %6.3f, %6.3f, %6.3f   %6.3f\n", RX, v3f_len(RX));
+  serial.printf("RY  %6.3f, %6.3f, %6.3f   %6.3f\n", RY, v3f_len(RY));
+  serial.printf("RZ  %6.3f, %6.3f, %6.3f   %6.3f\n", RZ, v3f_len(RZ));
+  serial.printf("magneti %6.3f, %6.3f, %6.3f  %6.3f\n", v3_to_floats_and_length(v3_sub(magnet_inital_raw, magnet_guess)));
   serial.printf("magnet  %6.3f, %6.3f, %6.3f  %6.3f\n", v3_to_floats_and_length(magnet));
-  serial.printf("magnetr  %6.3f, %6.3f, %6.3f\n", v3_to_floats(magnet_raw));
-  serial.printf("magnet+ %6.3f, %6.3f, %6.3f\n", v3_to_floats(magnet_max));
-  serial.printf("magnet- %6.3f, %6.3f, %6.3f\n", v3_to_floats(magnet_min));
+  //serial.printf("magnetr  %6.3f, %6.3f, %6.3f\n", v3_to_floats(magnet_raw));
+  //serial.printf("magnet+ %6.3f, %6.3f, %6.3f\n", v3_to_floats(magnet_max));
+  //serial.printf("magnet- %6.3f, %6.3f, %6.3f\n", v3_to_floats(magnet_min));
   serial.printf("\n");
 }
 
@@ -296,14 +312,52 @@ static void read_accel() {
   static uint32_t stable_frames = 0;
 
   accel_raw = i2c_read_v3(I2C_ID_MPU6050, I2C_ADDR_MPU6050_ACCEL);
-  gyro_raw = i2c_read_v3(I2C_ID_MPU6050, I2C_ADDR_MPU6050_GYRO);
+  V3 g = i2c_read_v3(I2C_ID_MPU6050, I2C_ADDR_MPU6050_GYRO);
+  gyro_raw = {to_float(g.x), to_float(g.y), to_float(g.z)};
 
   accel_raw = v3_scale(accel_raw, to_fixed16(FIX_ONEF * 9.85f * 2.0f/32768.0f));
-  gyro_raw = v3_scale(gyro_raw, to_fixed16(FIX_ONEF * 0.01745329f * 250.0f/32768.0f));
+  gyro_raw = v3f_scale(gyro_raw, 512.0f * 0.01745329f * 250.0f/32768.0f);
 
-  gyro = v3_sub(gyro_raw, gyro_offset);
+  gyro = v3f_sub(gyro_raw, gyro_offset);
 
-  if (v3_len(gyro) < to_fixed16(0.05)) {
+  {
+    V3f magif;
+    magif.x = to_float(magnet_inital_raw.x) - to_float(magnet_guess.x);
+    magif.y = to_float(magnet_inital_raw.y) - to_float(magnet_guess.y);
+    magif.z = to_float(magnet_inital_raw.z) - to_float(magnet_guess.z);
+    V3f magf;
+    magf.x = to_float(magnet.x);
+    magf.y = to_float(magnet.y);
+    magf.z = to_float(magnet.z);
+
+    if (v3f_len2(magf) > 0.1 && v3f_len2(magif) > 0.1) {
+      magf = v3f_norm(magf);
+      magif = v3f_norm(magif);
+      
+      gx_err = acosf(v3f_dot(RX, magf)) - acosf(magif.x);
+      gy_err = acosf(v3f_dot(RY, magf)) - acosf(magif.y);
+      gz_err = acosf(v3f_dot(RZ, magf)) - acosf(magif.z);
+
+      //gz_err = 0.0f;
+
+      angles = {gx_err, gy_err, gz_err};
+      angles = v3f_scale(angles, 57.2957795131f);
+
+      float p = -10;
+
+      g_adj.x = (gy_err - gz_err) * fabsf(gx_err) * p;
+      g_adj.y = (gz_err - gx_err) * fabsf(gy_err) * p;
+      g_adj.z = (gx_err - gy_err) * fabsf(gz_err) * p;
+      
+      gyro.x += g_adj.x;
+      gyro.y += g_adj.y;
+      gyro.z += g_adj.z;
+
+     // gyro.x += 0.05;
+    }
+  }
+
+  if (v3f_len(gyro) < 0.05) {
     stable_frames ++;
   } else {
     stable_frames = 0;
@@ -338,6 +392,9 @@ static void read_magnet() {
 
   magnet_guess = v3_scale(v3_add(magnet_max, magnet_min), to_fixed16(0.5f));
   magnet = v3_sub(magnet_raw, magnet_guess);
+  if (magnet_inital_raw.x == 0 && magnet_inital_raw.y == 0 && magnet_inital_raw.z == 0) {
+    magnet_inital_raw = magnet_raw;
+  }
 }
 
 void loop() {
