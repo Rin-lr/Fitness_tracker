@@ -29,6 +29,14 @@ typedef struct {
   float z;
 } V3f;
 
+// Only used as quaterions
+typedef struct {
+  float w;
+  float i;
+  float j;
+  float k;
+} V4f;
+
 typedef struct {
   float x[3];
 } V3_floats;
@@ -61,6 +69,25 @@ static fixed16 v3_dist2(const V3 x, const V3 y) { return v3_len2(v3_sub(x, y)); 
 // Fixed point printing utils
 static V4_floats v3_to_floats_and_length(const V3 x) { return { to_float(x.x), to_float(x.y), to_float(x.z), to_float(v3_len(x)) }; }
 static V3_floats v3_to_floats(const V3 x) { return { to_float(x.x), to_float(x.y), to_float(x.z) }; }
+
+
+static V4f q_mul(const V4f x, const V4f y) { 
+  return (V4f) {
+    x.w * y.w - x.i * y.i - x.j * y.j - x.k * y.k,
+    x.w * y.i + x.w * y.i + x.j * y.k - x.k * y.j,
+    x.w * y.j - x.k * y.i + x.j * y.w + x.k * y.i,
+    x.w * y.k - x.j * y.i - x.j * y.i + x.k * y.w,
+  }; 
+}
+
+static V4f q_conj(const V4f x) {
+  return (V4f) { x.w, -x.i, -x.j, -x.k};
+}
+
+static V4f q_norm(const V4f x) {
+  float ilen = 1.0f/sqrtf(x.w*x.w + x.i*x.i + x.j*x.j + x.k*x.k);
+  return (V4f) { x.w * ilen, x.i * ilen, x.j * ilen, x.k * ilen };
+}
 
 //
 
@@ -132,6 +159,7 @@ static float gy_err = 0;
 static float gz_err = 0;
 static V3f g_adj = {0, 0, 0};
 static V3f angles = {0, 0, 0};
+static V4f q_angle = {1, 0, 0, 0};
 
 static int i2c_detect(int id) {
   Wire.beginTransmission(id);
@@ -252,37 +280,48 @@ static void compute_angular_movement() {
 
 // https://web.archive.org/web/20120602094634/http://gentlenav.googlecode.com/files/DCMDraft2.pdf
 static void compute_angles() {
-  const float delta = 1.0f / 100.0f;
-  float gx = gyro.x * delta;
-  float gy = gyro.y * delta;
-  float gz = gyro.z * delta;
+  // Use Madgwick AHRS algorithm
+  // https://github.com/Josef4Sci/AHRS_Filter/blob/master/Filters/JustaAHRSPure.m
+  V3f acc = {to_float(accel.x), to_float(accel.y), to_float(accel.z)};
+  V3f mag = {to_float(magnet.x), to_float(magnet.y), to_float(magnet.z)};
+  acc = v3f_norm(acc);
+  mag = v3f_norm(mag);
+  //float qdot = 0.5f * q_mul(q_angles, {0, gyro.x, gyro.y, gyro.z});
+  V3f wt = v3f_scale(gyro, 1.0f/100.0f * 0.5f);
+  float qdotx = sinf(wt.x); // Consider that sin x = x for small x?
+  float qdoty = sinf(wt.y);
+  float qdotz = sinf(wt.z);
+  float qdotw = sqrtf(1.0f-qdotx*qdotx+qdoty*qdoty+qdotz*qdotz);
+  V4f qdot = {qdotw, qdotx, qdoty, qdotz};
 
-  V3f newRX = {
-    RX.x + RY.x * gz - RZ.x * gy,
-    RX.y + RY.y * gz - RZ.y * gy,
-    RX.z + RY.z * gz - RZ.z * gy
+  V4f qp = q_mul(q_angle, qdot);
+  float R[9] = {
+    2.0f*(0.5f-qp.j*qp.j-qp.k*qp.k), 0.0f, 2.0f*(qp.i*qp.k-qp.w*qp.j),
+    2.0f*(qp.i*qp.j-qp.w*qp.k), 0.0f, 2.0f*(qp.w*qp.i+qp.j*qp.k),
+    2.0f*(qp.w*qp.j+qp.i*qp.k), 0.0f, 2.0f*(0.5f-qp.i*qp.i-qp.j*qp.j),
   };
-  V3f newRY = {
-    -RX.x * gz + RY.x + RZ.x * gx,
-    -RX.y * gz + RY.y + RZ.y * gx,
-    -RX.z * gz + RY.z + RZ.z * gx
-  };
-  V3f newRZ = {
-    RX.x * gy - RY.x * gx + RZ.x,
-    RX.y * gy - RY.y * gx + RZ.y,
-    RX.z * gy - RY.z * gx + RZ.z
-  };
-  float error = v3f_dot(newRX, newRY);
-  V3f orthRX = v3f_sub(newRX, v3f_scale(newRY, error*0.5f));
-  V3f orthRY = v3f_sub(newRY, v3f_scale(newRX, error*0.5f));
-  V3f orthRZ = v3f_cross(orthRX, orthRY);
 
-  RX = v3f_scale(orthRX, 0.5f*(3.0f-v3f_len2(orthRX)));
-  RY = v3f_scale(orthRY, 0.5f*(3.0f-v3f_len2(orthRY)));
-  RZ = v3f_scale(orthRZ, 0.5f*(3.0f-v3f_len2(orthRZ)));
-  /*RX = v3f_norm(RX);
-  RY = v3f_norm(RY);
-  RZ = v3f_norm(RZ);*/
+  V3f ap = { R[2], R[5], R[8] };
+  float mr_z = v3f_dot(ap, mag);
+  float mr_x = sqrtf(1.0f - mr_z*mr_z);
+
+  V3f mp = { R[0]*mr_x+R[2]*mr_z, R[3]*mr_x+R[5]*mr_z, R[6]*mr_x+R[8]*mr_z };
+
+  V3f vec_a = v3f_norm(v3f_cross(acc, ap));
+  V3f vec_m = v3f_norm(v3f_cross(mag, mp));
+
+  const float wAcc=0.00248;
+  const float wMag=1.35e-04;
+  const float gain=0.0528152;
+
+  V3f im = v3f_add(v3f_scale(vec_a, -wAcc*0.5f), v3f_scale(vec_m, -wMag*0.5f));
+  float im_len = v3f_len(im);
+  V3f im2 = v3f_scale(im, sinf(im_len/3.1415)*3.1415/(im_len));
+  V4f q_cor = {sqrtf(1.0f-im_len*im_len), im2.x, im2.y, im2.z};
+
+  q_angle = q_mul(qp, q_cor);
+  if (q_angle.w < 0.0f) q_angle.w = -q_angle.w;
+  q_angle = q_norm(q_angle);
 }
 
 static void print_stats() {
@@ -294,12 +333,13 @@ static void print_stats() {
   serial.printf("gyror   %6.3f, %6.3f, %6.3f\n", gyro_raw);
   serial.printf("gyro    %6.3f, %6.3f, %6.3f\n", gyro);
   serial.printf("ang mov %6.3f\n", to_float(angular_movement));
-  serial.printf("gyro error  %6.3f, %6.3f, %6.3f\n", gx_err, gy_err, gz_err);
+  serial.printf("quaternion %6.3f %6.3f %6.3f %6.3f\n", q_angle);
+ // serial.printf("gyro error  %6.3f, %6.3f, %6.3f\n", gx_err, gy_err, gz_err);
   //serial.printf("gyro adj to  %6.3f, %6.3f, %6.3f\n", g_adj);
-  serial.printf("angles  %6.3f, %6.3f, %6.3f degrees\n", angles);
-  serial.printf("RX  %6.3f, %6.3f, %6.3f   %6.3f\n", RX, v3f_len(RX));
-  serial.printf("RY  %6.3f, %6.3f, %6.3f   %6.3f\n", RY, v3f_len(RY));
-  serial.printf("RZ  %6.3f, %6.3f, %6.3f   %6.3f\n", RZ, v3f_len(RZ));
+  //serial.printf("angles  %6.3f, %6.3f, %6.3f degrees\n", angles);
+  //serial.printf("RX  %6.3f, %6.3f, %6.3f   %6.3f\n", RX, v3f_len(RX));
+  //serial.printf("RY  %6.3f, %6.3f, %6.3f   %6.3f\n", RY, v3f_len(RY));
+  //serial.printf("RZ  %6.3f, %6.3f, %6.3f   %6.3f\n", RZ, v3f_len(RZ));
   serial.printf("magneti %6.3f, %6.3f, %6.3f  %6.3f\n", v3_to_floats_and_length(v3_sub(magnet_inital_raw, magnet_guess)));
   serial.printf("magnet  %6.3f, %6.3f, %6.3f  %6.3f\n", v3_to_floats_and_length(magnet));
   //serial.printf("magnetr  %6.3f, %6.3f, %6.3f\n", v3_to_floats(magnet_raw));
@@ -320,7 +360,7 @@ static void read_accel() {
 
   gyro = v3f_sub(gyro_raw, gyro_offset);
 
-  {
+  /*{
     V3f magif;
     magif.x = to_float(magnet_inital_raw.x) - to_float(magnet_guess.x);
     magif.y = to_float(magnet_inital_raw.y) - to_float(magnet_guess.y);
@@ -355,7 +395,7 @@ static void read_accel() {
 
      // gyro.x += 0.05;
     }
-  }
+  }*/
 
   if (v3f_len(gyro) < 0.05) {
     stable_frames ++;
