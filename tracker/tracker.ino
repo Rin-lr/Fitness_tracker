@@ -80,6 +80,14 @@ static V4f q_mul(const V4f x, const V4f y) {
   }; 
 }
 
+static V4f q_add(const V4f x, const V4f y) {
+  return (V4f) { x.w+y.w, x.i+y.i, x.j+y.j, x.k+y.k };
+}
+
+static V4f q_scale(const V4f x, float y) {
+  return (V4f) { x.w*y, x.i*y, x.j*y, x.k*y };
+}
+
 static V4f q_conj(const V4f x) {
   return (V4f) { x.w, -x.i, -x.j, -x.k};
 }
@@ -286,23 +294,51 @@ static void compute_angles() {
   V3f mag = {to_float(magnet.x), to_float(magnet.y), to_float(magnet.z)};
   acc = v3f_norm(acc);
   mag = v3f_norm(mag);
-  //float qdot = 0.5f * q_mul(q_angles, {0, gyro.x, gyro.y, gyro.z});
-  V3f wt = v3f_scale(gyro, 1.0f/100.0f * 0.5f);
+  V4f qdot = q_scale(q_mul(q_angle, {0, gyro.x, gyro.y, gyro.z}), 0.5f);
+  q_angle = q_add(q_angle, qdot);
+
+ /* V3f wt = v3f_scale(gyro, 1.0f/100.0f * 0.5f);
   float qdotx = sinf(wt.x); // Consider that sin x = x for small x?
   float qdoty = sinf(wt.y);
   float qdotz = sinf(wt.z);
-  float qdotw = sqrtf(1.0f-qdotx*qdotx+qdoty*qdoty+qdotz*qdotz);
-  V4f qdot = {qdotw, qdotx, qdoty, qdotz};
+  float qdotw = sqrtf(1.0f-qdotx*qdotx+qdoty*qdoty+qdotz*qdotz);*/
+  //V4f qdot = {qdotw, qdotx, qdoty, qdotz};
 
   V4f qp = q_mul(q_angle, qdot);
   float R[9] = {
-    2.0f*(0.5f-qp.j*qp.j-qp.k*qp.k), 0.0f, 2.0f*(qp.i*qp.k-qp.w*qp.j),
-    2.0f*(qp.i*qp.j-qp.w*qp.k), 0.0f, 2.0f*(qp.w*qp.i+qp.j*qp.k),
-    2.0f*(qp.w*qp.j+qp.i*qp.k), 0.0f, 2.0f*(0.5f-qp.i*qp.i-qp.j*qp.j),
+    2.0f*(0.5f-qp.j*qp.j-qp.k*qp.k), 2.0f*(qp.w*qp.k+qp.i*qp.j),     2.0f*(qp.i*qp.k-qp.w*qp.j),
+    2.0f*(qp.i*qp.j-qp.w*qp.k),      2.0f*(0.5-qp.i*qp.i-qp.k*qp.k), 2.0f*(qp.w*qp.i+qp.j*qp.k),
+    2.0f*(qp.w*qp.j+qp.i*qp.k),      2.0f*(qp.j*qp.j-qp.w*qp.i),     2.0f*(0.5f-qp.i*qp.i-qp.j*qp.j),
   };
 
   V3f ap = { R[2], R[5], R[8] };
-  float mr_z = v3f_dot(ap, mag);
+  V4f h = q_mul(q_angle, q_mul({0, mag.x, mag.y, mag.z}, q_conj(q_angle)));
+  V3f mr = v3f_norm({sqrtf(h.i*h.i+h.j*h.j), 0.0, h.k});
+
+  V3f mp = { 
+    R[0]*mag.x+R[1]*mag.y+R[2]*mag.z, 
+    R[3]*mag.x+R[4]*mag.y+R[5]*mag.z, 
+    R[6]*mag.x+R[7]*mag.y+R[8]*mag.z
+  };
+
+  V3f veca = v3f_norm(v3f_cross({0, 0, 1}, ap));
+  V3f vecm = v3f_norm(v3f_cross(mr, mp));
+
+  const float wAcc=0.00248;
+  const float wMag=1.35e-04;
+  const float gain=0.0528152;
+
+  V3f im = v3f_add(v3f_scale(veca, -wAcc*0.5f), v3f_scale(vecm, -wMag*0.5f));
+  float im_len = v3f_len(im);
+  V3f im2 = v3f_scale(im, sinf(im_len/3.1415)*3.1415/(im_len));
+  V4f q_cor = {sqrtf(1.0f-im_len*im_len), im2.x, im2.y, im2.z};
+
+  q_angle = q_mul(qp, q_cor);
+  if (q_angle.w < 0.0f) q_angle.w = -q_angle.w;
+  q_angle = q_norm(q_angle);
+
+
+  /*float mr_z = v3f_dot(ap, mag);
   float mr_x = sqrtf(1.0f - mr_z*mr_z);
 
   V3f mp = { R[0]*mr_x+R[2]*mr_z, R[3]*mr_x+R[5]*mr_z, R[6]*mr_x+R[8]*mr_z };
@@ -321,7 +357,7 @@ static void compute_angles() {
 
   q_angle = q_mul(qp, q_cor);
   if (q_angle.w < 0.0f) q_angle.w = -q_angle.w;
-  q_angle = q_norm(q_angle);
+  q_angle = q_norm(q_angle);*/
 }
 
 static void print_stats() {
