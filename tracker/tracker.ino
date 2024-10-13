@@ -70,13 +70,12 @@ static fixed16 v3_dist2(const V3 x, const V3 y) { return v3_len2(v3_sub(x, y)); 
 static V4_floats v3_to_floats_and_length(const V3 x) { return { to_float(x.x), to_float(x.y), to_float(x.z), to_float(v3_len(x)) }; }
 static V3_floats v3_to_floats(const V3 x) { return { to_float(x.x), to_float(x.y), to_float(x.z) }; }
 
-
 static V4f q_mul(const V4f x, const V4f y) { 
   return (V4f) {
-    x.w * y.w - x.i * y.i - x.j * y.j - x.k * y.k,
-    x.w * y.i + x.w * y.i + x.j * y.k - x.k * y.j,
-    x.w * y.j - x.k * y.i + x.j * y.w + x.k * y.i,
-    x.w * y.k - x.j * y.i - x.j * y.i + x.k * y.w,
+    x.w * y.w - y.i * x.i - x.j * y.j - x.k * y.k,
+    x.w * y.i + y.w * x.i + x.j * y.k - x.k * y.j,
+    x.w * y.j - y.k * x.i + x.j * y.w + x.k * y.i,
+    x.w * y.k + y.j * x.i - x.j * y.i + x.k * y.w,
   }; 
 }
 
@@ -94,7 +93,38 @@ static V4f q_conj(const V4f x) {
 
 static V4f q_norm(const V4f x) {
   float ilen = 1.0f/sqrtf(x.w*x.w + x.i*x.i + x.j*x.j + x.k*x.k);
-  return (V4f) { x.w * ilen, x.i * ilen, x.j * ilen, x.k * ilen };
+  return q_scale(x, ilen);
+}
+
+static V4f q_from_euler(float roll, float pitch, float yaw) {
+  float cr = cosf(roll * 0.5f);
+  float sr = sinf(roll * 0.5f);
+  float cp = cosf(pitch * 0.5f);
+  float sp = sinf(pitch * 0.5f);
+  float cy = cosf(yaw * 0.5f);
+  float sy = sinf(yaw * 0.5f);
+  V4f q;
+  q.w = cr * cp * cy + sr * sp * sy;
+  q.i = sr * cp * cy - cr * sp * sy;
+  q.j = cr * sp * cy + sr * cp * sy;
+  q.k = cr * cp * sy - sr * sp * cy;
+  return q;
+}
+
+static V4f q_from_vec(const V3f v1, const V3f v2) {
+  V4f q;
+  V3f a = v3f_cross(v1, v2);
+  q.i = a.x;
+  q.j = a.y;
+  q.k = a.z;
+  q.w = sqrtf(v3f_len2(v1) * v3f_len2(v2)) + v3f_dot(v1, v2);
+  return q_norm(q);
+}
+
+static V3f q_apply(const V3f v, const V4f q) {
+  V4f result = {0, v.x, v.y, v.z};
+  result = q_mul(q_mul(q, result), q_conj(q));
+  return {result.i, result.j, result.k};
 }
 
 //
@@ -137,7 +167,7 @@ gyro  calibrate -0.026,  0.036, -0.020
 accel guess     0.648,  0.576, -2.755
 */
 const static V3 accel_offset = {to_fixed16( 0.648),  to_fixed16(0.576), to_fixed16(-2.755)};
-const static V3f gyro_offset =  {-0.027, 0.034, -0.022};
+const static V3f gyro_offset =  {-0.026, 0.036, -0.021};
 
 static fixed16 accel_progress = 0;
 static fixed16 linear_movement = 0;
@@ -155,6 +185,9 @@ static V3f RZ = {0, 0, 1};
 static V3 magnet_inital_raw = {0, 0, 0};
 static V3 magnet_raw = {0, 0, 0};
 static V3 magnet = {0, 0, 0};
+static V3f magnet_n = {1, 0, 0};
+static V3f magneti_n = {1, 0, 0};
+static V4f drift = {1, 0, 0, 0};
 //static V3 magnet_max = { FIX_MIN, FIX_MIN, FIX_MIN }; // {to_fixed16(18.467), to_fixed16(-12.686), to_fixed16(18.168)};
 //static V3 magnet_min = { FIX_MAX, FIX_MAX, FIX_MAX }; // {to_fixed16(-4.805), to_fixed16(-36.055), to_fixed16(-4.854)};
 static V3 magnet_max = {to_fixed16(18.467), to_fixed16(-12.686), to_fixed16(18.168)};
@@ -168,6 +201,9 @@ static float gz_err = 0;
 static V3f g_adj = {0, 0, 0};
 static V3f angles = {0, 0, 0};
 static V4f q_angle = {1, 0, 0, 0};
+static V4f q_magnet_ref = {1, 0, 0, 0};
+static V4f q_magnet = {1, 0, 0, 0};
+static V4f q_magneti = {1, 0, 0, 0};
 
 static int i2c_detect(int id) {
   Wire.beginTransmission(id);
@@ -279,6 +315,7 @@ void setup(void) {
   init_qmc5883l();
 
   next_tick = micros() + 10000;
+  delay(100);
   serial.printf("Done\n");
 }
 
@@ -286,91 +323,34 @@ static void compute_angular_movement() {
   angular_movement = fabsf(gyro.x) + fabsf(gyro.y) + fabsf(gyro.z);
 }
 
-// https://web.archive.org/web/20120602094634/http://gentlenav.googlecode.com/files/DCMDraft2.pdf
 static void compute_angles() {
-  // Use Madgwick AHRS algorithm
-  // https://github.com/Josef4Sci/AHRS_Filter/blob/master/Filters/JustaAHRSPure.m
   V3f acc = {to_float(accel.x), to_float(accel.y), to_float(accel.z)};
   V3f mag = {to_float(magnet.x), to_float(magnet.y), to_float(magnet.z)};
   acc = v3f_norm(acc);
   mag = v3f_norm(mag);
-  V4f qdot = q_scale(q_mul(q_angle, {0, gyro.x, gyro.y, gyro.z}), 0.5f);
-  q_angle = q_add(q_angle, qdot);
-
- /* V3f wt = v3f_scale(gyro, 1.0f/100.0f * 0.5f);
-  float qdotx = sinf(wt.x); // Consider that sin x = x for small x?
-  float qdoty = sinf(wt.y);
-  float qdotz = sinf(wt.z);
-  float qdotw = sqrtf(1.0f-qdotx*qdotx+qdoty*qdoty+qdotz*qdotz);*/
-  //V4f qdot = {qdotw, qdotx, qdoty, qdotz};
-
-  V4f qp = q_mul(q_angle, qdot);
-  float R[9] = {
-    2.0f*(0.5f-qp.j*qp.j-qp.k*qp.k), 2.0f*(qp.w*qp.k+qp.i*qp.j),     2.0f*(qp.i*qp.k-qp.w*qp.j),
-    2.0f*(qp.i*qp.j-qp.w*qp.k),      2.0f*(0.5-qp.i*qp.i-qp.k*qp.k), 2.0f*(qp.w*qp.i+qp.j*qp.k),
-    2.0f*(qp.w*qp.j+qp.i*qp.k),      2.0f*(qp.j*qp.j-qp.w*qp.i),     2.0f*(0.5f-qp.i*qp.i-qp.j*qp.j),
-  };
-
-  V3f ap = { R[2], R[5], R[8] };
-  V4f h = q_mul(q_angle, q_mul({0, mag.x, mag.y, mag.z}, q_conj(q_angle)));
-  V3f mr = v3f_norm({sqrtf(h.i*h.i+h.j*h.j), 0.0, h.k});
-
-  V3f mp = { 
-    R[0]*mag.x+R[1]*mag.y+R[2]*mag.z, 
-    R[3]*mag.x+R[4]*mag.y+R[5]*mag.z, 
-    R[6]*mag.x+R[7]*mag.y+R[8]*mag.z
-  };
-
-  V3f veca = v3f_norm(v3f_cross({0, 0, 1}, ap));
-  V3f vecm = v3f_norm(v3f_cross(mr, mp));
-
-  const float wAcc=0.00248;
-  const float wMag=1.35e-04;
-  const float gain=0.0528152;
-
-  V3f im = v3f_add(v3f_scale(veca, -wAcc*0.5f), v3f_scale(vecm, -wMag*0.5f));
-  float im_len = v3f_len(im);
-  V3f im2 = v3f_scale(im, sinf(im_len/3.1415)*3.1415/(im_len));
-  V4f q_cor = {sqrtf(1.0f-im_len*im_len), im2.x, im2.y, im2.z};
-
-  q_angle = q_mul(qp, q_cor);
-  if (q_angle.w < 0.0f) q_angle.w = -q_angle.w;
-  q_angle = q_norm(q_angle);
-
-
-  /*float mr_z = v3f_dot(ap, mag);
-  float mr_x = sqrtf(1.0f - mr_z*mr_z);
-
-  V3f mp = { R[0]*mr_x+R[2]*mr_z, R[3]*mr_x+R[5]*mr_z, R[6]*mr_x+R[8]*mr_z };
-
-  V3f vec_a = v3f_norm(v3f_cross(acc, ap));
-  V3f vec_m = v3f_norm(v3f_cross(mag, mp));
-
-  const float wAcc=0.00248;
-  const float wMag=1.35e-04;
-  const float gain=0.0528152;
-
-  V3f im = v3f_add(v3f_scale(vec_a, -wAcc*0.5f), v3f_scale(vec_m, -wMag*0.5f));
-  float im_len = v3f_len(im);
-  V3f im2 = v3f_scale(im, sinf(im_len/3.1415)*3.1415/(im_len));
-  V4f q_cor = {sqrtf(1.0f-im_len*im_len), im2.x, im2.y, im2.z};
-
-  q_angle = q_mul(qp, q_cor);
-  if (q_angle.w < 0.0f) q_angle.w = -q_angle.w;
-  q_angle = q_norm(q_angle);*/
+  const float DELTA = 1.0f/100.0f;
+  V4f new_q = q_mul(q_angle, q_from_euler(gyro.x*DELTA, gyro.y*DELTA, gyro.z*DELTA));
+  q_angle = q_norm(new_q);
 }
 
 static void print_stats() {
+  //serial.printf("accel   %6.3f, %6.3f, %6.3f  %6.3f\n", v3_to_floats_and_length(accel));
   /*serial.printf("accel   %6.3f, %6.3f, %6.3f  %6.3f\n", v3_to_floats_and_length(accel));
   serial.printf("accelr  %6.3f, %6.3f, %6.3f\n", v3_to_floats(accel_raw));
   serial.printf("accel+  %6.3f, %6.3f, %6.3f\n", v3_to_floats(accel_max));
   serial.printf("accel-  %6.3f, %6.3f, %6.3f\n", v3_to_floats(accel_min));
   serial.printf("accel guess    %6.3f, %6.3f, %6.3f\n", v3_to_floats(accel_guess));*/
-  serial.printf("gyror   %6.3f, %6.3f, %6.3f\n", gyro_raw);
+  //serial.printf("gyror   %6.3f, %6.3f, %6.3f\n", gyro_raw);
   serial.printf("gyro    %6.3f, %6.3f, %6.3f\n", gyro);
-  serial.printf("ang mov %6.3f\n", to_float(angular_movement));
-  serial.printf("quaternion %6.3f %6.3f %6.3f %6.3f\n", q_angle);
- // serial.printf("gyro error  %6.3f, %6.3f, %6.3f\n", gx_err, gy_err, gz_err);
+  //serial.printf("ang mov %6.3f\n", to_float(angular_movement));
+  //serial.printf("q magi  %6.3f %6.3f %6.3f %6.3f\n", q_magneti);
+  //serial.printf("q magr  %6.3f %6.3f %6.3f %6.3f\n", q_magnet_ref);
+  //serial.printf("q mag   %6.3f %6.3f %6.3f %6.3f\n", q_magnet);
+  serial.printf("n magr  %6.3f %6.3f %6.3f\n", magneti_n);
+  serial.printf("n mag   %6.3f %6.3f %6.3f\n", magnet_n);
+  serial.printf("q angle %6.3f %6.3f %6.3f %6.3f\n", q_angle);
+  serial.printf("q drift %6.3f %6.3f %6.3f %6.3f\n", drift);
+  //serial.printf("gyro error  %6.3f, %6.3f, %6.3f\n", gx_err, gy_err, gz_err);
   //serial.printf("gyro adj to  %6.3f, %6.3f, %6.3f\n", g_adj);
   //serial.printf("angles  %6.3f, %6.3f, %6.3f degrees\n", angles);
   //serial.printf("RX  %6.3f, %6.3f, %6.3f   %6.3f\n", RX, v3f_len(RX));
@@ -395,43 +375,6 @@ static void read_accel() {
   gyro_raw = v3f_scale(gyro_raw, 512.0f * 0.01745329f * 250.0f/32768.0f);
 
   gyro = v3f_sub(gyro_raw, gyro_offset);
-
-  /*{
-    V3f magif;
-    magif.x = to_float(magnet_inital_raw.x) - to_float(magnet_guess.x);
-    magif.y = to_float(magnet_inital_raw.y) - to_float(magnet_guess.y);
-    magif.z = to_float(magnet_inital_raw.z) - to_float(magnet_guess.z);
-    V3f magf;
-    magf.x = to_float(magnet.x);
-    magf.y = to_float(magnet.y);
-    magf.z = to_float(magnet.z);
-
-    if (v3f_len2(magf) > 0.1 && v3f_len2(magif) > 0.1) {
-      magf = v3f_norm(magf);
-      magif = v3f_norm(magif);
-      
-      gx_err = acosf(v3f_dot(RX, magf)) - acosf(magif.x);
-      gy_err = acosf(v3f_dot(RY, magf)) - acosf(magif.y);
-      gz_err = acosf(v3f_dot(RZ, magf)) - acosf(magif.z);
-
-      //gz_err = 0.0f;
-
-      angles = {gx_err, gy_err, gz_err};
-      angles = v3f_scale(angles, 57.2957795131f);
-
-      float p = -10;
-
-      g_adj.x = (gy_err - gz_err) * fabsf(gx_err) * p;
-      g_adj.y = (gz_err - gx_err) * fabsf(gy_err) * p;
-      g_adj.z = (gx_err - gy_err) * fabsf(gz_err) * p;
-      
-      gyro.x += g_adj.x;
-      gyro.y += g_adj.y;
-      gyro.z += g_adj.z;
-
-     // gyro.x += 0.05;
-    }
-  }*/
 
   if (v3f_len(gyro) < 0.05) {
     stable_frames ++;
@@ -468,9 +411,24 @@ static void read_magnet() {
 
   magnet_guess = v3_scale(v3_add(magnet_max, magnet_min), to_fixed16(0.5f));
   magnet = v3_sub(magnet_raw, magnet_guess);
+  // Magnet module has a different axis system on the arduino breadboard test, swizzle the vector
+  // Could also swizzle the magnet_raw variable instead, but I'd have to change calibrations so w/e
+  magnet = {-magnet.y, -magnet.x, -magnet.z};
+  magnet_n = v3f_norm({to_float(magnet.x), to_float(magnet.y), to_float(magnet.z)});
   if (magnet_inital_raw.x == 0 && magnet_inital_raw.y == 0 && magnet_inital_raw.z == 0) {
     magnet_inital_raw = magnet_raw;
+    //q_magneti = q_norm(q_from_vec({1, 0, 0}, mf));
   }
+  V3 m = v3_sub(magnet_inital_raw, magnet_guess);
+  m = {-m.y, -m.x, -m.z};
+  magneti_n = v3f_norm({to_float(m.x), to_float(m.y), to_float(m.z)});
+  magneti_n = q_apply(magneti_n, q_angle);
+  drift = q_from_vec(magneti_n, magnet_n);
+  drift.w = 1.0f-((1.0f-drift.w) * (50.0f/100.0f));
+  q_angle = q_mul(drift, q_angle);
+  //q_magnet_ref = q_mul(q_angle, q_magneti);
+  //V3f mf = v3f_norm({to_float(magnet.x), to_float(magnet.y), to_float(magnet.z)});
+  //q_magnet = q_norm(q_from_vec({0.1, 0, 0}, mf));
 }
 
 void loop() {
@@ -485,7 +443,8 @@ void loop() {
   compute_angular_movement();
 
   n ++;
-  if (n % 50 == 0) {
+  if (n % 30 == 0) {
     print_stats();
+    serial.printf("LATE %ld\n", (long)micros() - next_tick);
   }
 }
