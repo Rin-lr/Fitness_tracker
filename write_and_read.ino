@@ -41,6 +41,7 @@ void setup() {
   }
 
   Serial.println("initialization done.");
+  deleteFile();
   write();
   read();
 
