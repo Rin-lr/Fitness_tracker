@@ -178,13 +178,14 @@ void setup(void) {
 
 static void print_stats() {
   serial.printf("\n");
-  serial.printf("accelr  %6.3f, %6.3f, %6.3f\n", accel_raw);
-  serial.printf("accel   %6.3f, %6.3f, %6.3f  %6.3f\n", accel, v3f_len(accel));
+  serial.printf("activity %d %d\n", fabsf(v3f_len(accel)-9.85f) > 2.5f, v3f_len(gyro) > 0.15f);
+  //serial.printf("accelr  %6.3f, %6.3f, %6.3f\n", accel_raw);
+  //serial.printf("accel   %6.3f, %6.3f, %6.3f  %6.3f\n", accel, v3f_len(accel));
   /*serial.printf("accel+  %6.3f, %6.3f, %6.3f\n", v3_to_floats(accel_max));
   serial.printf("accel-  %6.3f, %6.3f, %6.3f\n", v3_to_floats(accel_min));
   serial.printf("accel guess    %6.3f, %6.3f, %6.3f\n", v3_to_floats(accel_guess));*/
-  serial.printf("gyror   %6.3f, %6.3f, %6.3f\n", gyro_raw);
-  serial.printf("gyro    %6.3f, %6.3f, %6.3f\n", gyro);
+  //serial.printf("gyror   %6.3f, %6.3f, %6.3f\n", gyro_raw);
+  //serial.printf("gyro    %6.3f, %6.3f, %6.3f\n", gyro);
   //serial.printf("gyro error  %6.3f, %6.3f, %6.3f\n", gx_err, gy_err, gz_err);
   //serial.printf("gyro adj to  %6.3f, %6.3f, %6.3f\n", g_adj);
 }
