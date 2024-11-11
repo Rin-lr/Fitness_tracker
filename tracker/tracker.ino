@@ -7,22 +7,6 @@
 
 static StreamEx serial = Serial;
 
-// How many bits in the fixed point format come after the decimal point
-#define FIX_SHIFT 9
-#define FIX_ONEF ((float)(1 << FIX_SHIFT))
-#define FIX_ONE (1 << FIX_SHIFT)
-#define FIX_HALF (1 << (FIX_SHIFT-1))
-#define FIX_MIN (-32768)
-#define FIX_MAX (32767)
-
-typedef int16_t fixed16;
-
-typedef struct {
-  fixed16 x;
-  fixed16 y;
-  fixed16 z;
-} V3;
-
 typedef struct {
   float x;
   float y;
@@ -36,96 +20,6 @@ typedef struct {
   float j;
   float k;
 } V4f;
-
-typedef struct {
-  float x[3];
-} V3_floats;
-
-typedef struct {
-  float x[4];
-} V4_floats;
-
-// Fixed point utils
-static fixed16 to_fixed16(float value) { return value * FIX_ONEF;}
-static float to_float(fixed16 value) { return value / FIX_ONEF;}
-static fixed16 fixed_mul(fixed16 a, fixed16 b) { return ((int32_t)a * (int32_t)b) >> FIX_SHIFT; }
-static fixed16 fixed_div(fixed16 a, fixed16 b) { return ((int32_t)a * (int32_t)FIX_ONE) / (int32_t)b; }
-
-// Fixed point vector utils
-static V3 v3_add(const V3 x, const V3 y) { return (V3){ x.x + y.x, x.y + y.y, x.z + y.z }; }
-static V3 v3_sub(const V3 x, const V3 y) { return (V3){ x.x - y.x, x.y - y.y, x.z - y.z }; }
-static V3 v3_mul(const V3 x, const V3 y) { return (V3){ fixed_mul(x.x, y.x), fixed_mul(x.y, y.y), fixed_mul(x.z, y.z) }; }
-static V3 v3_div(const V3 x, const V3 y) { return (V3){ fixed_div(x.x, y.x), fixed_div(x.y, y.y), fixed_div(x.z, y.z) }; }
-static V3 v3_cross(const V3 x, const V3 y) { return (V3){ (x.y*y.z-x.z*y.y) >> FIX_SHIFT, (x.z*y.x-x.x*y.z) >> FIX_SHIFT, (x.x*y.y-x.y*y.x) >> FIX_SHIFT }; }
-static V3 v3_scale(const V3 x, fixed16 y) { return (V3){ fixed_mul(x.x, y), fixed_mul(x.y, y), fixed_mul(x.z, y) }; }
-static V3 v3_norm(const V3 x) { return v3_scale(x, fixed_div(FIX_ONE, v3_len(x))); };
-static V3 v3_norm_bias(const V3 x) { return v3_scale(x, fixed_div(FIX_ONE, (int32_t)1 + (int32_t)v3_len(x))); };
-static fixed16 v3_dot(const V3 x, const V3 y) { return ((int32_t)x.x * (int32_t)y.x + (int32_t)x.y * (int32_t)y.y + (int32_t)x.z * (int32_t)y.z) >> FIX_SHIFT; };
-static fixed16 v3_len(const V3 x) { return sqrtf(fabsf(((int32_t)x.x * (int32_t)x.x + (int32_t)x.y * (int32_t)x.y + (int32_t)x.z * (int32_t)x.z) / (FIX_ONEF*FIX_ONEF))) * FIX_ONEF; };
-static fixed16 v3_len2(const V3 x) { return ((int32_t)x.x * (int32_t)x.x + (int32_t)x.y * (int32_t)x.y + (int32_t)x.z * (int32_t)x.z) >> FIX_SHIFT; };
-static fixed16 v3_dist(const V3 x, const V3 y) { return v3_len(v3_sub(x, y)); };
-static fixed16 v3_dist2(const V3 x, const V3 y) { return v3_len2(v3_sub(x, y)); };
-
-// Fixed point printing utils
-static V4_floats v3_to_floats_and_length(const V3 x) { return { to_float(x.x), to_float(x.y), to_float(x.z), to_float(v3_len(x)) }; }
-static V3_floats v3_to_floats(const V3 x) { return { to_float(x.x), to_float(x.y), to_float(x.z) }; }
-
-static V4f q_mul(const V4f x, const V4f y) { 
-  return (V4f) {
-    x.w * y.w - y.i * x.i - x.j * y.j - x.k * y.k,
-    x.w * y.i + y.w * x.i + x.j * y.k - x.k * y.j,
-    x.w * y.j - y.k * x.i + x.j * y.w + x.k * y.i,
-    x.w * y.k + y.j * x.i - x.j * y.i + x.k * y.w,
-  }; 
-}
-
-static V4f q_add(const V4f x, const V4f y) {
-  return (V4f) { x.w+y.w, x.i+y.i, x.j+y.j, x.k+y.k };
-}
-
-static V4f q_scale(const V4f x, float y) {
-  return (V4f) { x.w*y, x.i*y, x.j*y, x.k*y };
-}
-
-static V4f q_conj(const V4f x) {
-  return (V4f) { x.w, -x.i, -x.j, -x.k};
-}
-
-static V4f q_norm(const V4f x) {
-  float ilen = 1.0f/sqrtf(x.w*x.w + x.i*x.i + x.j*x.j + x.k*x.k);
-  return q_scale(x, ilen);
-}
-
-static V4f q_from_euler(float roll, float pitch, float yaw) {
-  float cr = cosf(roll * 0.5f);
-  float sr = sinf(roll * 0.5f);
-  float cp = cosf(pitch * 0.5f);
-  float sp = sinf(pitch * 0.5f);
-  float cy = cosf(yaw * 0.5f);
-  float sy = sinf(yaw * 0.5f);
-  V4f q;
-  q.w = cr * cp * cy + sr * sp * sy;
-  q.i = sr * cp * cy - cr * sp * sy;
-  q.j = cr * sp * cy + sr * cp * sy;
-  q.k = cr * cp * sy - sr * sp * cy;
-  return q;
-}
-
-static V4f q_from_vec(const V3f v1, const V3f v2) {
-  V4f q;
-  V3f a = v3f_cross(v1, v2);
-  q.i = a.x;
-  q.j = a.y;
-  q.k = a.z;
-  q.w = sqrtf(v3f_len2(v1) * v3f_len2(v2)) + v3f_dot(v1, v2);
-  return q_norm(q);
-}
-
-static V3f q_apply(const V3f v, const V4f q) {
-  V4f result = {0, v.x, v.y, v.z};
-  result = q_mul(q_mul(q, result), q_conj(q));
-  return {result.i, result.j, result.k};
-}
 
 //
 
@@ -143,108 +37,86 @@ static float v3f_dist(const V3f x, const V3f y) { return v3f_len(v3f_sub(x, y));
 static float v3f_dist2(const V3f x, const V3f y) { return v3f_len2(v3f_sub(x, y)); };
 
 // Roguhly 0.5^(1/50)
-#define HALF_LIFE_0_5             to_fixed16(0.986232704493f)
+#define HALF_LIFE_0_5             0.986232704493f
 
 // How many entries to keep in the guess algorihm
 #define ACCEL_BUFFER_SIZE         16
 
 // Multiplier for the guess algorithm
-#define ACCEL_GUESS_AGGRESSIVNESS to_fixed16(0.02f)
+#define ACCEL_GUESS_AGGRESSIVNESS 0.02f
 
 // Accelerometer guess vector will not exeed this magnitude
-#define ACCEL_GUESS_MAX_LEN       to_fixed16(6.0f)
+#define ACCEL_GUESS_MAX_LEN       6.0f
 
 // Estimated gravity magnitude used by acceleration offset guessing algorihm
-#define ACCEL_ESTIMATED_GRAVITY   to_fixed16(9.85f)
-
-// If the dot product between a normalized acceleration and a normalized buffer vector is higher than
-// this then don't bother writing the entry
-#define ACCEL_GUESS_CLOSENESS     to_fixed16(0.97f)
+#define ACCEL_ESTIMATED_GRAVITY   9.85f
 
 /*
 accel calibrate -0.654,  0.070,  7.055
 gyro  calibrate -0.026,  0.036, -0.020
 accel guess     0.648,  0.576, -2.755
 */
-const static V3 accel_offset = {to_fixed16( 0.648),  to_fixed16(0.576), to_fixed16(-2.755)};
+const static V3f accel_offset = { 0.648, 0.576, -2.755};
 const static V3f gyro_offset =  {-0.026, 0.036, -0.021};
 
-static fixed16 accel_progress = 0;
-static fixed16 linear_movement = 0;
-static fixed16 angular_movement = 0;
-static V3 accel_raw = {0, 0, 0};
-static V3 accel = {0, 0, 0};
-static V3 accel_max = {0, 0, 0};
-static V3 accel_min = {0, 0, 0};
-static V3 accel_guess = {to_fixed16(0.648f), to_fixed16(-0.031), to_fixed16(-3.676f)};
+static V3f accel_raw = {0, 0, 0};
+static V3f accel = {0, 0, 0};
+static V3f accel_max = {0, 0, 0};
+static V3f accel_min = {0, 0, 0};
+static V3f accel_guess = {0.648f, -0.031, -3.676f};
 static V3f gyro_raw = {0, 0, 0};
 static V3f gyro = {0, 0, 0};
-static V3f RX = {1, 0, 0};
-static V3f RY = {0, 1, 0};
-static V3f RZ = {0, 0, 1};
-static V3 magnet_inital_raw = {0, 0, 0};
-static V3 magnet_raw = {0, 0, 0};
-static V3 magnet = {0, 0, 0};
-static V3f magnet_n = {1, 0, 0};
-static V3f magneti_n = {1, 0, 0};
-static V4f drift = {1, 0, 0, 0};
-//static V3 magnet_max = { FIX_MIN, FIX_MIN, FIX_MIN }; // {to_fixed16(18.467), to_fixed16(-12.686), to_fixed16(18.168)};
-//static V3 magnet_min = { FIX_MAX, FIX_MAX, FIX_MAX }; // {to_fixed16(-4.805), to_fixed16(-36.055), to_fixed16(-4.854)};
-static V3 magnet_max = {to_fixed16(18.467), to_fixed16(-12.686), to_fixed16(18.168)};
-static V3 magnet_min = {to_fixed16(-4.805), to_fixed16(-36.055), to_fixed16(-4.854)};
-static V3 magnet_guess = {0, 0, 0};
-static uint8_t n = 0;
+static uint32_t n = 0;
 static uint32_t next_tick; // TODO: Upgrade to 64 bit?
-static float gx_err = 0;
-static float gy_err = 0;
-static float gz_err = 0;
-static V3f g_adj = {0, 0, 0};
-static V3f angles = {0, 0, 0};
-static V4f q_angle = {1, 0, 0, 0};
-static V4f q_magnet_ref = {1, 0, 0, 0};
-static V4f q_magnet = {1, 0, 0, 0};
-static V4f q_magneti = {1, 0, 0, 0};
 
 static int i2c_detect(int id) {
   Wire.beginTransmission(id);
   return Wire.endTransmission() == 0;
 }
 
-static V3 i2c_read_v3(int id, int address) {
-  V3 result;
+static V3f i2c_read_v3(int id, int address) {
+  V3f result;
   Wire.beginTransmission(id);
   Wire.write(address);
   int error = Wire.endTransmission(false);
-  Wire.requestFrom(id, 6, true);
+  Wire.requestFrom(id, 6, 1);
   if (error != 0) {
     serial.printf("I2C error\n");
     delay(1000);
   }
-  result.x = Wire.read() << 8;
-  result.x |= Wire.read();
-  result.y = Wire.read() << 8;
-  result.y |= Wire.read();
-  result.z = Wire.read() << 8;
-  result.z |= Wire.read();
+  int val;
+  val = Wire.read() << 8;
+  val |= Wire.read();
+  result.x = val;
+  val = Wire.read() << 8;
+  val |= Wire.read();
+  result.y = val;
+  val = Wire.read() << 8;
+  val |= Wire.read();
+  result.z = val;
   return result;
 }
 
-static V3 i2c_read_v3_rev(int id, int address) {
-  V3 result;
+static V3f i2c_read_v3_rev(int id, int address) {
+  V3f result;
   Wire.beginTransmission(id);
   Wire.write(address);
   int error = Wire.endTransmission(false);
-  Wire.requestFrom(id, 6, true);
+  Wire.requestFrom(id, 6, 1);
   if (error != 0) {
     serial.printf("I2C error\n");
     delay(1000);
   }
-  result.x = Wire.read();
-  result.x |= Wire.read() << 8;
-  result.y = Wire.read();
-  result.y |= Wire.read() << 8;
-  result.z = Wire.read();
-  result.z |= Wire.read() << 8;
+  int val;
+  val = Wire.read();
+  val = Wire.read() << 8;
+  result.x = val;
+  val = Wire.read();
+  val = Wire.read() << 8;
+  result.y = val;
+  val = Wire.read();
+  val = Wire.read() << 8;
+  result.z = val;
   return result;
 }
 
@@ -252,7 +124,7 @@ static int i2c_read_byte(int id, int address) {
   Wire.beginTransmission(id);
   Wire.write(address);
   int error = Wire.endTransmission(false);
-  Wire.requestFrom(id, 1, true);
+  Wire.requestFrom(id, 1, 1);
   if (error != 0) {
     serial.printf("I2C error\n");
     delay(1000);
@@ -281,11 +153,6 @@ static void(*reset)() = 0;
 #define I2C_ADDR_MPU6050_GYRO_CONFIG  0x1B
 #define I2C_ADDR_MPU6050_ACCEL_CONFIG 0x1C
 
-//https://nettigo.pl/attachments/440
-#define I2C_ID_QMC5883L 0x0D
-#define I2C_ADDR_QMC5883L_MAGNET 0x00
-#define I2C_ADDR_QMC5883L_CONFIG 0x09
-
 static void init_mpu6050() {
   if (!i2c_detect(I2C_ID_MPU6050)) {
     serial.printf("Failed to find MPU6050 chip\n");
@@ -295,84 +162,40 @@ static void init_mpu6050() {
   i2c_write_byte(I2C_ID_MPU6050, I2C_ADDR_MPU6050_RESET, 0); // Reset the device
 }
 
-static void init_qmc5883l() {
-  if (!i2c_detect(I2C_ID_QMC5883L)) {
-    serial.printf("Failed to find QMC5883L chip\n");
-    delay(1000);
-    reset();
-  }
-  // Highest oversampling, 2 gauss, continious mode, 200 Hz
-  i2c_write_byte(I2C_ID_QMC5883L, I2C_ADDR_QMC5883L_CONFIG, 0b00001101);
-}
-
 void setup(void) {
   Serial.begin(115200);
-  Wire.begin();
-
   serial.printf("Init\n");
 
-  init_mpu6050();
-  init_qmc5883l();
+  Wire.begin();
 
-  next_tick = micros() + 10000;
   delay(100);
+
+  init_mpu6050();
+
+  next_tick = micros() + 50000;
   serial.printf("Done\n");
 }
 
-static void compute_angular_movement() {
-  angular_movement = fabsf(gyro.x) + fabsf(gyro.y) + fabsf(gyro.z);
-}
-
-static void compute_angles() {
-  V3f acc = {to_float(accel.x), to_float(accel.y), to_float(accel.z)};
-  V3f mag = {to_float(magnet.x), to_float(magnet.y), to_float(magnet.z)};
-  acc = v3f_norm(acc);
-  mag = v3f_norm(mag);
-  const float DELTA = 1.0f/100.0f;
-  V4f new_q = q_mul(q_angle, q_from_euler(gyro.x*DELTA, gyro.y*DELTA, gyro.z*DELTA));
-  q_angle = q_norm(new_q);
-}
-
 static void print_stats() {
-  //serial.printf("accel   %6.3f, %6.3f, %6.3f  %6.3f\n", v3_to_floats_and_length(accel));
-  /*serial.printf("accel   %6.3f, %6.3f, %6.3f  %6.3f\n", v3_to_floats_and_length(accel));
-  serial.printf("accelr  %6.3f, %6.3f, %6.3f\n", v3_to_floats(accel_raw));
-  serial.printf("accel+  %6.3f, %6.3f, %6.3f\n", v3_to_floats(accel_max));
+  serial.printf("\n");
+  serial.printf("accelr  %6.3f, %6.3f, %6.3f\n", accel_raw);
+  serial.printf("accel   %6.3f, %6.3f, %6.3f  %6.3f\n", accel, v3f_len(accel));
+  /*serial.printf("accel+  %6.3f, %6.3f, %6.3f\n", v3_to_floats(accel_max));
   serial.printf("accel-  %6.3f, %6.3f, %6.3f\n", v3_to_floats(accel_min));
   serial.printf("accel guess    %6.3f, %6.3f, %6.3f\n", v3_to_floats(accel_guess));*/
-  //serial.printf("gyror   %6.3f, %6.3f, %6.3f\n", gyro_raw);
+  serial.printf("gyror   %6.3f, %6.3f, %6.3f\n", gyro_raw);
   serial.printf("gyro    %6.3f, %6.3f, %6.3f\n", gyro);
-  //serial.printf("ang mov %6.3f\n", to_float(angular_movement));
-  //serial.printf("q magi  %6.3f %6.3f %6.3f %6.3f\n", q_magneti);
-  //serial.printf("q magr  %6.3f %6.3f %6.3f %6.3f\n", q_magnet_ref);
-  //serial.printf("q mag   %6.3f %6.3f %6.3f %6.3f\n", q_magnet);
-  serial.printf("n magr  %6.3f %6.3f %6.3f\n", magneti_n);
-  serial.printf("n mag   %6.3f %6.3f %6.3f\n", magnet_n);
-  serial.printf("q angle %6.3f %6.3f %6.3f %6.3f\n", q_angle);
-  serial.printf("q drift %6.3f %6.3f %6.3f %6.3f\n", drift);
   //serial.printf("gyro error  %6.3f, %6.3f, %6.3f\n", gx_err, gy_err, gz_err);
   //serial.printf("gyro adj to  %6.3f, %6.3f, %6.3f\n", g_adj);
-  //serial.printf("angles  %6.3f, %6.3f, %6.3f degrees\n", angles);
-  //serial.printf("RX  %6.3f, %6.3f, %6.3f   %6.3f\n", RX, v3f_len(RX));
-  //serial.printf("RY  %6.3f, %6.3f, %6.3f   %6.3f\n", RY, v3f_len(RY));
-  //serial.printf("RZ  %6.3f, %6.3f, %6.3f   %6.3f\n", RZ, v3f_len(RZ));
-  serial.printf("magneti %6.3f, %6.3f, %6.3f  %6.3f\n", v3_to_floats_and_length(v3_sub(magnet_inital_raw, magnet_guess)));
-  serial.printf("magnet  %6.3f, %6.3f, %6.3f  %6.3f\n", v3_to_floats_and_length(magnet));
-  //serial.printf("magnetr  %6.3f, %6.3f, %6.3f\n", v3_to_floats(magnet_raw));
-  //serial.printf("magnet+ %6.3f, %6.3f, %6.3f\n", v3_to_floats(magnet_max));
-  //serial.printf("magnet- %6.3f, %6.3f, %6.3f\n", v3_to_floats(magnet_min));
-  serial.printf("\n");
 }
 
 static void read_accel() {
   static uint32_t stable_frames = 0;
 
   accel_raw = i2c_read_v3(I2C_ID_MPU6050, I2C_ADDR_MPU6050_ACCEL);
-  V3 g = i2c_read_v3(I2C_ID_MPU6050, I2C_ADDR_MPU6050_GYRO);
-  gyro_raw = {to_float(g.x), to_float(g.y), to_float(g.z)};
-
-  accel_raw = v3_scale(accel_raw, to_fixed16(FIX_ONEF * 9.85f * 2.0f/32768.0f));
-  gyro_raw = v3f_scale(gyro_raw, 512.0f * 0.01745329f * 250.0f/32768.0f);
+  gyro_raw = i2c_read_v3(I2C_ID_MPU6050, I2C_ADDR_MPU6050_GYRO);
+  accel_raw = v3f_scale(accel_raw, 9.85f * 2.0f/32768.0f);
+  gyro_raw = v3f_scale(gyro_raw, 256.0f * 0.01745329f / 32768.0f); // TODO: Why is this constant like this?
 
   gyro = v3f_sub(gyro_raw, gyro_offset);
 
@@ -392,59 +215,22 @@ static void read_accel() {
 
     if (accel_max.x > 0 && accel_max.y > 0 && accel_max.z > 0 &&
         accel_min.x < 0 && accel_min.y < 0 && accel_min.z < 0) {
-        accel_guess = v3_scale(v3_add(accel_max, accel_min), to_fixed16(0.5f));
+        accel_guess = v3f_scale(v3f_add(accel_max, accel_min), 0.5f);
     }
   }
-  accel = v3_sub(accel_raw, accel_guess);
-}
-
-static void read_magnet() {
-  magnet_raw = i2c_read_v3_rev(I2C_ID_QMC5883L, I2C_ADDR_QMC5883L_MAGNET);
-
-  magnet_max.x = max(magnet_raw.x, magnet_max.x);
-  magnet_max.y = max(magnet_raw.y, magnet_max.y);
-  magnet_max.z = max(magnet_raw.z, magnet_max.z);
-
-  magnet_min.x = min(magnet_raw.x, magnet_min.x);
-  magnet_min.y = min(magnet_raw.y, magnet_min.y);
-  magnet_min.z = min(magnet_raw.z, magnet_min.z);
-
-  magnet_guess = v3_scale(v3_add(magnet_max, magnet_min), to_fixed16(0.5f));
-  magnet = v3_sub(magnet_raw, magnet_guess);
-  // Magnet module has a different axis system on the arduino breadboard test, swizzle the vector
-  // Could also swizzle the magnet_raw variable instead, but I'd have to change calibrations so w/e
-  magnet = {-magnet.y, -magnet.x, -magnet.z};
-  magnet_n = v3f_norm({to_float(magnet.x), to_float(magnet.y), to_float(magnet.z)});
-  if (magnet_inital_raw.x == 0 && magnet_inital_raw.y == 0 && magnet_inital_raw.z == 0) {
-    magnet_inital_raw = magnet_raw;
-    //q_magneti = q_norm(q_from_vec({1, 0, 0}, mf));
-  }
-  V3 m = v3_sub(magnet_inital_raw, magnet_guess);
-  m = {-m.y, -m.x, -m.z};
-  magneti_n = v3f_norm({to_float(m.x), to_float(m.y), to_float(m.z)});
-  magneti_n = q_apply(magneti_n, q_angle);
-  drift = q_from_vec(magneti_n, magnet_n);
-  drift.w = 1.0f-((1.0f-drift.w) * (50.0f/100.0f));
-  q_angle = q_mul(drift, q_angle);
-  //q_magnet_ref = q_mul(q_angle, q_magneti);
-  //V3f mf = v3f_norm({to_float(magnet.x), to_float(magnet.y), to_float(magnet.z)});
-  //q_magnet = q_norm(q_from_vec({0.1, 0, 0}, mf));
+  accel = v3f_sub(accel_raw, accel_guess);
 }
 
 void loop() {
   unsigned long t = micros();
   if (t <= next_tick) return;
-  next_tick += 10000;
+  next_tick += 50000;
 
   read_accel();
-  read_magnet();
-
-  compute_angles();
-  compute_angular_movement();
 
   n ++;
-  if (n % 30 == 0) {
+  if (n % 2 == 0) {
     print_stats();
-    serial.printf("LATE %ld\n", (long)micros() - next_tick);
+    serial.printf("LATE %ld\n", (long)(micros() - next_tick));
   }
 }
