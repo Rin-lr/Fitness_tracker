@@ -4,6 +4,7 @@
 
 #include <PrintEx.h>
 #include <Wire.h>
+#include <inttypes.h>
 
 static StreamEx serial = Serial;
 
@@ -80,9 +81,9 @@ static V3f i2c_read_v3(int id, int address) {
   Wire.write(address);
   int error = Wire.endTransmission(false);
   Wire.requestFrom(id, 6, 1);
-  if (error != 0) {
-    serial.printf("I2C error\n");
-    delay(1000);
+  if (error) {
+    serial.printf("I2C error %d\n", error);
+    delay(100);
   }
   int val;
   val = Wire.read() << 8;
@@ -94,6 +95,11 @@ static V3f i2c_read_v3(int id, int address) {
   val = Wire.read() << 8;
   val |= Wire.read();
   result.z = val;
+  error = Wire.endTransmission();
+  if (error) {
+    serial.printf("I2C error %d\n", error);
+    delay(100);
+  }
   return result;
 }
 
@@ -103,9 +109,9 @@ static V3f i2c_read_v3_rev(int id, int address) {
   Wire.write(address);
   int error = Wire.endTransmission(false);
   Wire.requestFrom(id, 6, 1);
-  if (error != 0) {
-    serial.printf("I2C error\n");
-    delay(1000);
+  if (error) {
+    serial.printf("I2C error %d\n", error);
+    delay(100);
   }
   int val;
   val = Wire.read();
@@ -117,6 +123,11 @@ static V3f i2c_read_v3_rev(int id, int address) {
   val = Wire.read();
   val = Wire.read() << 8;
   result.z = val;
+  error = Wire.endTransmission();
+  if (error) {
+    serial.printf("I2C error %d\n", error);
+    delay(100);
+  }
   return result;
 }
 
@@ -125,60 +136,119 @@ static int i2c_read_byte(int id, int address) {
   Wire.write(address);
   int error = Wire.endTransmission(false);
   Wire.requestFrom(id, 1, 1);
-  if (error != 0) {
-    serial.printf("I2C error\n");
-    delay(1000);
+  if (error) {
+    serial.printf("I2C error %d\n", error);
+    delay(100);
   }
-  return Wire.read();
+  int result = Wire.read();
+  error = Wire.endTransmission();
+  if (error) {
+    serial.printf("I2C error %d\n", error);
+    delay(100);
+  }
+  return result;
+}
+
+static int i2c_read_bcd6(int id, int address) {
+  int data = i2c_read_byte(id, address);
+  return (data & 0x0f) + ((data & 0x40)>>4) * 10;
+}
+
+static int i2c_read_bcd7(int id, int address) {
+  int data = i2c_read_byte(id, address);
+  return (data & 0x0f) + ((data & 0x70)>>4) * 10;
+}
+
+static int i2c_read_bcd8(int id, int address) {
+  int data = i2c_read_byte(id, address);
+  return (data & 0x0f) + ((data & 0xf0)>>4) * 10;
 }
 
 static void i2c_write_byte(int id, int address, int value) {
   Wire.beginTransmission(id);
   Wire.write(address);
   Wire.write(value);
-  int error = Wire.endTransmission(false);
-  if (error != 0) {
-    serial.printf("I2C error\n");
-    delay(1000);
+  int error = Wire.endTransmission();
+  if (error) {
+    serial.printf("I2C error %d\n", error);
+    delay(100);
   }
 }
 
 static void(*reset)() = 0;
 
-#define I2C_ID_MPU6050  0x68
-#define I2C_ADDR_MPU6050_ACCEL  0x3B
-#define I2C_ADDR_MPU6050_GYRO   0x43
-#define I2C_ADDR_MPU6050_RESET  0x6B
-#define I2C_ADDR_MPU6050_WHOAMI 0x75
+#define I2C_ID_MPU6050                0x69
+#define I2C_ADDR_MPU6050_ACCEL        0x3B
+#define I2C_ADDR_MPU6050_GYRO         0x43
+#define I2C_ADDR_MPU6050_RESET        0x6B
+#define I2C_ADDR_MPU6050_WHOAMI       0x75
 #define I2C_ADDR_MPU6050_GYRO_CONFIG  0x1B
 #define I2C_ADDR_MPU6050_ACCEL_CONFIG 0x1C
+
+#define I2C_ID_DS1307                 0x68
+#define I2C_ADDR_DS1307_SECOND_BCD7   0x00
+#define I2C_ADDR_DS1307_MINUTE_BCD7   0x01
+#define I2C_ADDR_DS1307_HOUR_BCD6     0x02
+#define I2C_ADDR_DS1307_DAY           0x03
+#define I2C_ADDR_DS1307_DATE_BCD7     0x04
+#define I2C_ADDR_DS1307_MONTH_BCD7    0x05
+#define I2C_ADDR_DS1307_YEAR_BCD8     0x06
 
 static void init_mpu6050() {
   if (!i2c_detect(I2C_ID_MPU6050)) {
     serial.printf("Failed to find MPU6050 chip\n");
-    delay(1000);
+    delay(3000);
     reset();
   }
-  i2c_write_byte(I2C_ID_MPU6050, I2C_ADDR_MPU6050_RESET, 0); // Reset the device
+  i2c_write_byte(I2C_ID_MPU6050, I2C_ADDR_MPU6050_RESET, 0x00); // Reset the device
+}
+
+static void init_ds1307() {
+  if (!i2c_detect(I2C_ID_DS1307)) {
+    serial.printf("Failed to find DS1307 chip\n");
+    delay(3000);
+    reset();
+  }
+  i2c_write_byte(I2C_ID_DS1307, I2C_ADDR_DS1307_SECOND_BCD7, 0x00); // Enable oscillator, seconds = 0
+  i2c_write_byte(I2C_ID_DS1307, I2C_ADDR_DS1307_MINUTE_BCD7, 0x01); // minutes = 1
+  i2c_write_byte(I2C_ID_DS1307, I2C_ADDR_DS1307_HOUR_BCD6, 0x00); // hours = 0
+  i2c_write_byte(I2C_ID_DS1307, I2C_ADDR_DS1307_DAY, 0x00); // days = 1
+  i2c_write_byte(I2C_ID_DS1307, I2C_ADDR_DS1307_DATE_BCD7, 0x00); // date = 1
+  i2c_write_byte(I2C_ID_DS1307, I2C_ADDR_DS1307_MONTH_BCD7, 0x00); // months = 1
+  i2c_write_byte(I2C_ID_DS1307, I2C_ADDR_DS1307_YEAR_BCD8, 0x00); // years = 0
 }
 
 void setup(void) {
   Serial.begin(115200);
   serial.printf("Init\n");
+  delay(100);
 
   Wire.begin();
 
-  delay(100);
-
   init_mpu6050();
+  init_ds1307();
+
+  delay(100);
 
   next_tick = micros() + 50000;
   serial.printf("Done\n");
 }
 
+static uint64_t timestamp() {
+  return 
+    i2c_read_byte(I2C_ID_DS1307, I2C_ADDR_DS1307_SECOND_BCD7)
+    | (i2c_read_bcd7(I2C_ID_DS1307, I2C_ADDR_DS1307_MINUTE_BCD7) << 8)
+    | (i2c_read_bcd6(I2C_ID_DS1307, I2C_ADDR_DS1307_HOUR_BCD6) << 16)
+    | (i2c_read_bcd7(I2C_ID_DS1307, I2C_ADDR_DS1307_DATE_BCD7) << 24)
+    | (i2c_read_bcd7(I2C_ID_DS1307, I2C_ADDR_DS1307_MONTH_BCD7) << 32)
+    | (i2c_read_bcd8(I2C_ID_DS1307, I2C_ADDR_DS1307_YEAR_BCD8) << 40);
+}
+
 static void print_stats() {
   serial.printf("\n");
   serial.printf("activity %d %d\n", fabsf(v3f_len(accel)-9.85f) > 2.5f, v3f_len(gyro) > 0.15f);
+  uint64_t ts = timestamp();
+  serial.printf("timestamp 0x%lx%lx\n", (uint32_t)(ts >> 32), (uint32_t)timestamp());
   //serial.printf("accelr  %6.3f, %6.3f, %6.3f\n", accel_raw);
   //serial.printf("accel   %6.3f, %6.3f, %6.3f  %6.3f\n", accel, v3f_len(accel));
   /*serial.printf("accel+  %6.3f, %6.3f, %6.3f\n", v3_to_floats(accel_max));
