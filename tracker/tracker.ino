@@ -5,6 +5,8 @@
 #include <PrintEx.h>
 #include <Wire.h>
 #include <inttypes.h>
+#include <avr/io.h>
+#include <avr/sleep.h>
 
 static StreamEx serial = Serial;
 
@@ -193,6 +195,7 @@ static void(*reset)() = 0;
 #define I2C_ADDR_DS1307_DATE_BCD7     0x04
 #define I2C_ADDR_DS1307_MONTH_BCD7    0x05
 #define I2C_ADDR_DS1307_YEAR_BCD8     0x06
+#define I2C_ADDR_DS1307_CONTROL       0x07
 
 static void init_mpu6050() {
   if (!i2c_detect(I2C_ID_MPU6050)) {
@@ -216,6 +219,33 @@ static void init_ds1307() {
   i2c_write_byte(I2C_ID_DS1307, I2C_ADDR_DS1307_DATE_BCD7, 0x00); // date = 1
   i2c_write_byte(I2C_ID_DS1307, I2C_ADDR_DS1307_MONTH_BCD7, 0x00); // months = 1
   i2c_write_byte(I2C_ID_DS1307, I2C_ADDR_DS1307_YEAR_BCD8, 0x00); // years = 0
+  //i2c_write_byte(I2C_ID_DS1307, I2C_ADDR_DS1307_CONTROL, 0x10); // Enable square wave, 32 kHz
+}
+
+int sleep = 0;
+
+ISR(TIMER2_OVF_vect) //update time
+{
+  /*TCNT2 = 0; //preload timer 256 - 32,768kHz/32/4Hz
+  sleep ++;*/
+}
+
+static void init_counter() {
+  /*noInterrupts(); //disable all interrupts
+  ASSR |= (1 << AS2); //clock input to Timer2 from XTAL1/XTAL2
+  TCCR2A = 0;
+  TCCR2B = 0;
+  
+  TCNT2 = 0; //preload timer 256 - 32,768kHz/32/4Hz
+  TCCR2B |= ((1 << CS20) | (1 << CS21) | (1 << CS22)); //32 prescaler
+  TIMSK2 |= (1 << TOIE2); //enable timer overflow interrupt
+  interrupts(); //enable all interrupts
+  */
+  //TIMSK0 &= ~(1 << OCIE0A); //disable TIMER0
+
+  TCCR2A = 0x00; // Wave Form Generation Mode 0: Normal Mode, OC2A disconnected
+  TCCR2B = (1<<CS22)|(1<<CS21)|(1<<CS20); // prescaler = 1024
+  TIMSK2 = (1<<TOIE2); // Enable interrupt
 }
 
 void setup(void) {
@@ -227,11 +257,14 @@ void setup(void) {
 
   init_mpu6050();
   init_ds1307();
+  init_counter();
 
   delay(100);
 
-  next_tick = micros() + 50000;
+  next_tick = micros() + 100000;
+
   serial.printf("Done\n");
+  serial.flush();
 }
 
 static uint64_t timestamp() {
@@ -249,6 +282,7 @@ static void print_stats() {
   serial.printf("activity %d %d\n", fabsf(v3f_len(accel)-9.85f) > 2.5f, v3f_len(gyro) > 0.15f);
   uint64_t ts = timestamp();
   serial.printf("timestamp 0x%lx%lx\n", (uint32_t)(ts >> 32), (uint32_t)timestamp());
+  //serial.printf("count %d %d\n", (int)(TCNT2), sleep);
   //serial.printf("accelr  %6.3f, %6.3f, %6.3f\n", accel_raw);
   //serial.printf("accel   %6.3f, %6.3f, %6.3f  %6.3f\n", accel, v3f_len(accel));
   /*serial.printf("accel+  %6.3f, %6.3f, %6.3f\n", v3_to_floats(accel_max));
@@ -293,15 +327,18 @@ static void read_accel() {
 }
 
 void loop() {
-  unsigned long t = micros();
-  if (t <= next_tick) return;
-  next_tick += 50000;
+  TIMSK2 = (1<<TOIE2); // interrupt when TCNT2 is overflowed
+  TCNT2 = 0;
+  set_sleep_mode(SLEEP_MODE_PWR_SAVE); // choose power down mode
+  sleep_mode(); // sleep now!
+  sleep++;
 
   read_accel();
 
-  n ++;
-  if (n % 2 == 0) {
+ // if ((sleep % 61) == 0) {
+  if ((sleep % 31) == 0) {
     print_stats();
-    serial.printf("LATE %ld\n", (long)(micros() - next_tick));
+    serial.flush();
+    sleep = 0;
   }
 }
