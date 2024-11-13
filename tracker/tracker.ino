@@ -4,7 +4,8 @@
 
 #include <PrintEx.h>
 #include <Wire.h>
-#include <inttypes.h>
+#include <SPI.h>
+#include <SdFat.h>
 #include <avr/io.h>
 #include <avr/sleep.h>
 
@@ -231,21 +232,35 @@ ISR(TIMER2_OVF_vect) //update time
 }
 
 static void init_counter() {
-  /*noInterrupts(); //disable all interrupts
-  ASSR |= (1 << AS2); //clock input to Timer2 from XTAL1/XTAL2
-  TCCR2A = 0;
-  TCCR2B = 0;
-  
-  TCNT2 = 0; //preload timer 256 - 32,768kHz/32/4Hz
-  TCCR2B |= ((1 << CS20) | (1 << CS21) | (1 << CS22)); //32 prescaler
-  TIMSK2 |= (1 << TOIE2); //enable timer overflow interrupt
-  interrupts(); //enable all interrupts
-  */
-  //TIMSK0 &= ~(1 << OCIE0A); //disable TIMER0
-
   TCCR2A = 0x00; // Wave Form Generation Mode 0: Normal Mode, OC2A disconnected
   TCCR2B = (1<<CS22)|(1<<CS21)|(1<<CS20); // prescaler = 1024
   TIMSK2 = (1<<TOIE2); // Enable interrupt
+}
+
+SdFat sd;
+SdFile myFile;
+
+void init_sd() {
+  if (!sd.begin(16, SPI_HALF_SPEED)) {
+    sd.initErrorHalt();
+  }
+
+  // re-open the file for reading:
+  if (!myFile.open("test.txt", O_READ)) {
+    sd.errorHalt("opening test.txt for read failed");
+  }
+  Serial.println("test.txt:");
+
+  // read from the file until there's nothing else in it:
+  int data;
+  while ((data = myFile.read()) >= 0) {
+    Serial.write(data);
+  }
+  // close the file:
+  myFile.close();
+  if (!myFile.open("test.txt", O_RDWR | O_CREAT | O_TRUNC | O_SYNC)) {
+    sd.errorHalt("opening test.txt for write failed");
+  }
 }
 
 void setup(void) {
@@ -255,6 +270,7 @@ void setup(void) {
 
   Wire.begin();
 
+  init_sd();
   init_mpu6050();
   init_ds1307();
   init_counter();
@@ -264,6 +280,28 @@ void setup(void) {
   next_tick = micros() + 100000;
 
   serial.printf("Done\n");
+  serial.flush();
+}
+
+static int timestamp_seconds() {
+  int data = i2c_read_byte(I2C_ID_DS1307, I2C_ADDR_DS1307_SECOND_BCD7);
+  return (data & 0xF) + (data >> 4) * 10;
+}
+
+int activity_accel = 0;
+int activity_gyro = 0;
+int next_write = 10;
+
+static void write_file() {
+  serial.printf("WRITING FILE");
+  myFile.println("activity:");
+  myFile.println(activity_accel + activity_gyro);
+  activity_accel = 0;
+  activity_gyro = 0;
+  myFile.close();
+  if (!myFile.open("test.txt", O_RDWR | O_CREAT | O_APPEND | O_SYNC)) {
+    sd.errorHalt("opening test.txt for write failed");
+  }
   serial.flush();
 }
 
@@ -281,7 +319,7 @@ static void print_stats() {
   serial.printf("\n");
   serial.printf("activity %d %d\n", fabsf(v3f_len(accel)-9.85f) > 2.5f, v3f_len(gyro) > 0.15f);
   uint64_t ts = timestamp();
-  serial.printf("timestamp 0x%lx%lx\n", (uint32_t)(ts >> 32), (uint32_t)timestamp());
+  serial.printf("timestamp 0x%lx%lx %d %d\n", (uint32_t)(ts >> 32), (uint32_t)timestamp(), timestamp_seconds(), next_write);
   //serial.printf("count %d %d\n", (int)(TCNT2), sleep);
   //serial.printf("accelr  %6.3f, %6.3f, %6.3f\n", accel_raw);
   //serial.printf("accel   %6.3f, %6.3f, %6.3f  %6.3f\n", accel, v3f_len(accel));
@@ -292,6 +330,11 @@ static void print_stats() {
   //serial.printf("gyro    %6.3f, %6.3f, %6.3f\n", gyro);
   //serial.printf("gyro error  %6.3f, %6.3f, %6.3f\n", gx_err, gy_err, gz_err);
   //serial.printf("gyro adj to  %6.3f, %6.3f, %6.3f\n", g_adj);
+}
+
+static void compute_accel() {
+  activity_accel += fabsf(v3f_len(accel)-9.85f) > 2.5f;
+  activity_gyro += v3f_len(gyro) > 0.15f;
 }
 
 static void read_accel() {
@@ -334,8 +377,14 @@ void loop() {
   sleep++;
 
   read_accel();
+  compute_accel();
 
  // if ((sleep % 61) == 0) {
+  if (timestamp_seconds() == next_write) {
+    write_file();
+    next_write += 10;
+    next_write %= 60;
+  }
   if ((sleep % 31) == 0) {
     print_stats();
     serial.flush();
