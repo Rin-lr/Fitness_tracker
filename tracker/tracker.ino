@@ -224,11 +224,20 @@ static void init_ds1307() {
 }
 
 int sleep = 0;
+int is_sleeping = 0;
 
-ISR(TIMER2_OVF_vect) //update time
-{
-  /*TCNT2 = 0; //preload timer 256 - 32,768kHz/32/4Hz
-  sleep ++;*/
+static uint64_t ticks_awake = 0;
+static uint64_t ticks_asleep = 0;
+static int sleep_start_tcnt2 = 0;
+
+ISR(TIMER2_OVF_vect) {
+  if (is_sleeping) {
+    ticks_asleep += 255 - sleep_start_tcnt2;
+    ticks_awake += sleep_start_tcnt2;
+  } else {
+    ticks_awake += 255;
+  }
+  sleep ++;
 }
 
 static void init_counter() {
@@ -320,6 +329,7 @@ static void print_stats() {
   serial.printf("activity %d %d\n", fabsf(v3f_len(accel)-9.85f) > 2.5f, v3f_len(gyro) > 0.15f);
   uint64_t ts = timestamp();
   serial.printf("timestamp 0x%lx%lx %d %d\n", (uint32_t)(ts >> 32), (uint32_t)timestamp(), timestamp_seconds(), next_write);
+  serial.printf("sleep: %f%%  awake:%f alseep:%f\n", 100.0f * (float)ticks_asleep / ((float)ticks_awake + (float)ticks_asleep), (float)ticks_awake, (float)ticks_asleep);
   //serial.printf("count %d %d\n", (int)(TCNT2), sleep);
   //serial.printf("accelr  %6.3f, %6.3f, %6.3f\n", accel_raw);
   //serial.printf("accel   %6.3f, %6.3f, %6.3f  %6.3f\n", accel, v3f_len(accel));
@@ -369,12 +379,20 @@ static void read_accel() {
   accel = v3f_sub(accel_raw, accel_guess);
 }
 
-void loop() {
-  TIMSK2 = (1<<TOIE2); // interrupt when TCNT2 is overflowed
-  TCNT2 = 0;
+static void knockout() {
+  // TODO: reseting TCNT2 creates an unaccounted delay, but means we sleep more
+  // Do we care?
+  //TCNT2 = 0;
   set_sleep_mode(SLEEP_MODE_PWR_SAVE); // choose power down mode
+  // Record current TCNT2 to account for the amount of time until the overflow interrupt
+  sleep_start_tcnt2 = TCNT2;
+  is_sleeping = 1;
   sleep_mode(); // sleep now!
-  sleep++;
+  is_sleeping = 0;
+}
+
+void loop() {
+  knockout();
 
   read_accel();
   compute_accel();
