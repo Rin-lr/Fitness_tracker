@@ -1212,7 +1212,7 @@
 		(uuid "9e0cbcce-ffd8-4d14-9605-c9719d199a97")
 	)
 	(junction
-		(at 90.17 109.22)
+		(at 71.12 109.22)
 		(diameter 0)
 		(color 0 0 0 0)
 		(uuid "9f1481bd-55d5-4a7d-98f5-b3537fd3db3a")
@@ -1249,7 +1249,7 @@
 	)
 	(wire
 		(pts
-			(xy 90.17 109.22) (xy 90.17 111.76)
+			(xy 71.12 109.22) (xy 71.12 111.76)
 		)
 		(stroke
 			(width 0)
@@ -1299,7 +1299,7 @@
 	)
 	(wire
 		(pts
-			(xy 67.31 111.76) (xy 90.17 111.76)
+			(xy 67.31 111.76) (xy 71.12 111.76)
 		)
 		(stroke
 			(width 0)
@@ -1309,7 +1309,7 @@
 	)
 	(wire
 		(pts
-			(xy 67.31 109.22) (xy 90.17 109.22)
+			(xy 67.31 109.22) (xy 71.12 109.22)
 		)
 		(stroke
 			(width 0)
@@ -1359,7 +1359,7 @@
 	)
 	(wire
 		(pts
-			(xy 90.17 109.22) (xy 92.71 109.22)
+			(xy 71.12 109.22) (xy 73.66 109.22)
 		)
 		(stroke
 			(width 0)
@@ -1399,7 +1399,7 @@
 	)
 	(wire
 		(pts
-			(xy 67.31 106.68) (xy 90.17 106.68)
+			(xy 67.31 106.68) (xy 71.12 106.68)
 		)
 		(stroke
 			(width 0)
@@ -1409,7 +1409,7 @@
 	)
 	(wire
 		(pts
-			(xy 90.17 106.68) (xy 90.17 109.22)
+			(xy 71.12 106.68) (xy 71.12 109.22)
 		)
 		(stroke
 			(width 0)
@@ -1509,7 +1509,7 @@
 	)
 	(text "HW strap digital pins"
 		(exclude_from_sim no)
-		(at 105.918 109.474 0)
+		(at 86.868 109.474 0)
 		(effects
 			(font
 				(size 1.27 1.27)
@@ -1849,7 +1849,7 @@
 	)
 	(symbol
 		(lib_id "power:GND")
-		(at 92.71 109.22 0)
+		(at 73.66 109.22 0)
 		(unit 1)
 		(exclude_from_sim no)
 		(in_bom yes)
@@ -1857,7 +1857,7 @@
 		(dnp no)
 		(uuid "5846bc97-cdc9-4b7c-92d9-79796b35a31e")
 		(property "Reference" "#PWR020"
-			(at 92.71 115.57 0)
+			(at 73.66 115.57 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -1866,7 +1866,7 @@
 			)
 		)
 		(property "Value" "GND"
-			(at 93.98 112.014 0)
+			(at 74.93 112.014 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -1875,7 +1875,7 @@
 			)
 		)
 		(property "Footprint" ""
-			(at 92.71 109.22 0)
+			(at 73.66 109.22 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -1884,7 +1884,7 @@
 			)
 		)
 		(property "Datasheet" ""
-			(at 92.71 109.22 0)
+			(at 73.66 109.22 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -1893,7 +1893,7 @@
 			)
 		)
 		(property "Description" "Power symbol creates a global label with name \"GND\" , ground"
-			(at 92.71 109.22 0)
+			(at 73.66 109.22 0)
 			(effects
 				(font
 					(size 1.27 1.27)
