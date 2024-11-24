@@ -787,16 +787,6 @@
 	)
 	(wire
 		(pts
-			(xy 73.66 66.04) (xy 73.66 63.5)
-		)
-		(stroke
-			(width 0)
-			(type default)
-		)
-		(uuid "21fcce4b-0e51-4677-a912-0c161b9d3201")
-	)
-	(wire
-		(pts
 			(xy 44.45 29.21) (xy 44.45 30.48)
 		)
 		(stroke
@@ -834,16 +824,6 @@
 			(type default)
 		)
 		(uuid "44fdee00-d785-4a31-8662-48ba177aa940")
-	)
-	(wire
-		(pts
-			(xy 59.69 66.04) (xy 59.69 63.5)
-		)
-		(stroke
-			(width 0)
-			(type default)
-		)
-		(uuid "57828175-4adf-4caf-ae15-c932f31f965f")
 	)
 	(wire
 		(pts
@@ -993,7 +973,7 @@
 		(dnp no)
 		(fields_autoplaced yes)
 		(uuid "0b1c4b40-28ba-4928-a426-957877f6d787")
-		(property "Reference" "#PWR010"
+		(property "Reference" "#PWR08"
 			(at 25.4 29.21 0)
 			(effects
 				(font
@@ -1044,7 +1024,7 @@
 		(instances
 			(project "plokkskeem"
 				(path "/a526e2f2-17cc-4dbb-8268-7175c0e116d3/d85f3b90-f0eb-4a9d-a3e7-9d800ac0efe2"
-					(reference "#PWR010")
+					(reference "#PWR08")
 					(unit 1)
 				)
 			)
@@ -1127,7 +1107,7 @@
 		(dnp no)
 		(fields_autoplaced yes)
 		(uuid "2479d5da-7593-47cc-a7c3-e2944650854a")
-		(property "Reference" "#PWR08"
+		(property "Reference" "#PWR06"
 			(at 19.05 62.23 0)
 			(effects
 				(font
@@ -1177,7 +1157,7 @@
 		(instances
 			(project "plokkskeem"
 				(path "/a526e2f2-17cc-4dbb-8268-7175c0e116d3/d85f3b90-f0eb-4a9d-a3e7-9d800ac0efe2"
-					(reference "#PWR08")
+					(reference "#PWR06")
 					(unit 1)
 				)
 			)
@@ -1255,7 +1235,7 @@
 	)
 	(symbol
 		(lib_id "power:GND")
-		(at 73.66 66.04 0)
+		(at 73.66 63.5 0)
 		(unit 1)
 		(exclude_from_sim no)
 		(in_bom yes)
@@ -1263,8 +1243,8 @@
 		(dnp no)
 		(fields_autoplaced yes)
 		(uuid "624dc356-373b-4572-8456-7a0fc60ef84a")
-		(property "Reference" "#PWR014"
-			(at 73.66 72.39 0)
+		(property "Reference" "#PWR012"
+			(at 73.66 69.85 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -1273,7 +1253,7 @@
 			)
 		)
 		(property "Value" "GND"
-			(at 73.66 71.12 0)
+			(at 73.66 68.58 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -1281,7 +1261,7 @@
 			)
 		)
 		(property "Footprint" ""
-			(at 73.66 66.04 0)
+			(at 73.66 63.5 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -1290,7 +1270,7 @@
 			)
 		)
 		(property "Datasheet" ""
-			(at 73.66 66.04 0)
+			(at 73.66 63.5 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -1299,7 +1279,7 @@
 			)
 		)
 		(property "Description" "Power symbol creates a global label with name \"GND\" , ground"
-			(at 73.66 66.04 0)
+			(at 73.66 63.5 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -1313,7 +1293,7 @@
 		(instances
 			(project "plokkskeem"
 				(path "/a526e2f2-17cc-4dbb-8268-7175c0e116d3/d85f3b90-f0eb-4a9d-a3e7-9d800ac0efe2"
-					(reference "#PWR014")
+					(reference "#PWR012")
 					(unit 1)
 				)
 			)
@@ -1390,7 +1370,7 @@
 	)
 	(symbol
 		(lib_id "power:GND")
-		(at 59.69 66.04 0)
+		(at 59.69 63.5 0)
 		(unit 1)
 		(exclude_from_sim no)
 		(in_bom yes)
@@ -1398,8 +1378,8 @@
 		(dnp no)
 		(fields_autoplaced yes)
 		(uuid "70498285-73e2-451a-9833-5184e241ce6a")
-		(property "Reference" "#PWR013"
-			(at 59.69 72.39 0)
+		(property "Reference" "#PWR011"
+			(at 59.69 69.85 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -1408,7 +1388,7 @@
 			)
 		)
 		(property "Value" "GND"
-			(at 59.69 71.12 0)
+			(at 59.69 68.58 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -1416,7 +1396,7 @@
 			)
 		)
 		(property "Footprint" ""
-			(at 59.69 66.04 0)
+			(at 59.69 63.5 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -1425,7 +1405,7 @@
 			)
 		)
 		(property "Datasheet" ""
-			(at 59.69 66.04 0)
+			(at 59.69 63.5 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -1434,7 +1414,7 @@
 			)
 		)
 		(property "Description" "Power symbol creates a global label with name \"GND\" , ground"
-			(at 59.69 66.04 0)
+			(at 59.69 63.5 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -1448,7 +1428,7 @@
 		(instances
 			(project "plokkskeem"
 				(path "/a526e2f2-17cc-4dbb-8268-7175c0e116d3/d85f3b90-f0eb-4a9d-a3e7-9d800ac0efe2"
-					(reference "#PWR013")
+					(reference "#PWR011")
 					(unit 1)
 				)
 			)
@@ -1464,7 +1444,7 @@
 		(dnp no)
 		(fields_autoplaced yes)
 		(uuid "7cec1087-01d6-40d9-8670-ff24dfb843c4")
-		(property "Reference" "#PWR09"
+		(property "Reference" "#PWR07"
 			(at 24.13 62.23 0)
 			(effects
 				(font
@@ -1514,7 +1494,7 @@
 		(instances
 			(project "plokkskeem"
 				(path "/a526e2f2-17cc-4dbb-8268-7175c0e116d3/d85f3b90-f0eb-4a9d-a3e7-9d800ac0efe2"
-					(reference "#PWR09")
+					(reference "#PWR07")
 					(unit 1)
 				)
 			)
@@ -1530,7 +1510,7 @@
 		(dnp no)
 		(fields_autoplaced yes)
 		(uuid "9f86903e-26c0-4d87-a7bc-c18a14cd9a44")
-		(property "Reference" "#PWR012"
+		(property "Reference" "#PWR010"
 			(at 58.42 29.21 0)
 			(effects
 				(font
@@ -1581,7 +1561,7 @@
 		(instances
 			(project "plokkskeem"
 				(path "/a526e2f2-17cc-4dbb-8268-7175c0e116d3/d85f3b90-f0eb-4a9d-a3e7-9d800ac0efe2"
-					(reference "#PWR012")
+					(reference "#PWR010")
 					(unit 1)
 				)
 			)
@@ -1597,7 +1577,7 @@
 		(dnp no)
 		(fields_autoplaced yes)
 		(uuid "a66b24c7-b53b-47f5-a799-361a47b74f26")
-		(property "Reference" "U2"
+		(property "Reference" "U1"
 			(at 44.1041 64.77 0)
 			(effects
 				(font
@@ -1717,7 +1697,7 @@
 		(instances
 			(project "plokkskeem"
 				(path "/a526e2f2-17cc-4dbb-8268-7175c0e116d3/d85f3b90-f0eb-4a9d-a3e7-9d800ac0efe2"
-					(reference "U2")
+					(reference "U1")
 					(unit 1)
 				)
 			)
@@ -1733,7 +1713,7 @@
 		(dnp no)
 		(fields_autoplaced yes)
 		(uuid "b7932b36-157a-4818-a407-b19348dc399d")
-		(property "Reference" "#PWR011"
+		(property "Reference" "#PWR09"
 			(at 41.91 72.39 0)
 			(effects
 				(font
@@ -1783,7 +1763,7 @@
 		(instances
 			(project "plokkskeem"
 				(path "/a526e2f2-17cc-4dbb-8268-7175c0e116d3/d85f3b90-f0eb-4a9d-a3e7-9d800ac0efe2"
-					(reference "#PWR011")
+					(reference "#PWR09")
 					(unit 1)
 				)
 			)

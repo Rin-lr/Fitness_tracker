@@ -335,16 +335,6 @@
 	)
 	(bus
 		(pts
-			(xy 181.61 115.57) (xy 187.96 115.57)
-		)
-		(stroke
-			(width 0)
-			(type default)
-		)
-		(uuid "2377add1-8fd6-40bb-bd50-9dbd10ff045f")
-	)
-	(bus
-		(pts
 			(xy 237.49 90.17) (xy 265.43 90.17)
 		)
 		(stroke
@@ -402,6 +392,16 @@
 			(type default)
 		)
 		(uuid "643c7196-bc85-4856-baac-600a3fbef600")
+	)
+	(bus
+		(pts
+			(xy 265.43 52.07) (xy 265.43 58.42)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "68974344-ed6a-456f-9558-6f05b5e604f7")
 	)
 	(bus
 		(pts
@@ -687,8 +687,8 @@
 		(uuid a806b1db-dd54-4b5b-93ab-ba4e42b2b51b)
 	)
 	(rectangle
-		(start 187.96 110.49)
-		(end 212.09 120.65)
+		(start 252.73 41.656)
+		(end 278.13 51.816)
 		(stroke
 			(width 0)
 			(type default)
@@ -696,7 +696,7 @@
 		(fill
 			(type none)
 		)
-		(uuid cdba1a1f-5e51-4b92-b9d1-28cf0bd0edaf)
+		(uuid c0b6b6aa-4547-4ea5-b74e-a1682dc11f23)
 	)
 	(rectangle
 		(start 111.76 127)
@@ -752,6 +752,16 @@
 		)
 		(uuid "21f464c0-5e89-4d79-b987-cffe606993e6")
 	)
+	(text "OSC 32.768 kHz,\nQuartz"
+		(exclude_from_sim no)
+		(at 265.43 46.99 0)
+		(effects
+			(font
+				(size 1.397 1.397)
+			)
+		)
+		(uuid "344112c9-5c33-4c5e-8ccf-c2d69b9ee751")
+	)
 	(text "GPO"
 		(exclude_from_sim no)
 		(at 177.8 132.08 0)
@@ -772,7 +782,7 @@
 		)
 		(uuid "4f277e4b-9e5b-4216-b0f3-43c640ad3e67")
 	)
-	(text "6-pin ISCP header\nMISO/MOSI/SCK/\nRESET/GND/VCC\nVCC floating"
+	(text "6-pin ISCP header\nMISO/MOSI/SCK/\nRESET/GND/VCC\nVCC not connected"
 		(exclude_from_sim no)
 		(at 237.49 105.41 0)
 		(effects
@@ -781,16 +791,6 @@
 			)
 		)
 		(uuid "5315c350-6142-4fc1-84da-4e01a6ab5a46")
-	)
-	(text "5 pin debug header\nVCC floating"
-		(exclude_from_sim no)
-		(at 200.152 115.824 0)
-		(effects
-			(font
-				(size 1.397 1.397)
-			)
-		)
-		(uuid "541f0c66-d56c-40b1-8a7b-543ca176304d")
 	)
 	(text "I2C"
 		(exclude_from_sim no)
@@ -842,16 +842,6 @@
 		)
 		(uuid "7e658c7d-6d9e-438d-bc73-e138985e6961")
 	)
-	(text "USART2"
-		(exclude_from_sim no)
-		(at 176.784 115.824 0)
-		(effects
-			(font
-				(size 1.397 1.397)
-			)
-		)
-		(uuid "86d22aca-b145-416a-a669-4bae930bb6c1")
-	)
 	(text "MCU\nATMega328p"
 		(exclude_from_sim no)
 		(at 163.322 50.546 0)
@@ -872,7 +862,7 @@
 		)
 		(uuid "8a51909e-2596-49be-8d41-0c61753fbcbb")
 	)
-	(text "USART1"
+	(text "UART1"
 		(exclude_from_sim no)
 		(at 149.098 67.818 0)
 		(effects
@@ -982,7 +972,7 @@
 		)
 		(uuid "ee859539-fa56-4dbd-929b-59e81722ffcd")
 	)
-	(text "USB 2.0 to \nUSART bridge"
+	(text "USB 2.0 to \nUART bridge"
 		(exclude_from_sim no)
 		(at 84.582 67.564 0)
 		(effects
