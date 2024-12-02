@@ -885,9 +885,19 @@
 		)
 		(uuid "bc806a8d-9fff-415a-9b75-e8465e41eece")
 	)
+	(text "Accelerometer + gryoscope"
+		(exclude_from_sim no)
+		(at 41.91 16.51 0)
+		(effects
+			(font
+				(size 1.27 1.27)
+			)
+		)
+		(uuid "47ff58a1-593c-4eaa-8875-8bf9d3797c9c")
+	)
 	(text "All capacitors are +-10%"
 		(exclude_from_sim no)
-		(at 42.418 17.272 0)
+		(at 42.164 18.796 0)
 		(effects
 			(font
 				(size 1.27 1.27)

@@ -497,12 +497,12 @@
 		)
 	)
 	(no_connect
-		(at 53.34 33.02)
+		(at 54.61 34.29)
 		(uuid "5af4f1bb-f538-4373-abee-402bf6335d02")
 	)
 	(wire
 		(pts
-			(xy 26.67 35.56) (xy 26.67 33.02)
+			(xy 27.94 36.83) (xy 27.94 34.29)
 		)
 		(stroke
 			(width 0)
@@ -512,7 +512,7 @@
 	)
 	(wire
 		(pts
-			(xy 27.94 38.1) (xy 26.67 38.1)
+			(xy 29.21 39.37) (xy 27.94 39.37)
 		)
 		(stroke
 			(width 0)
@@ -522,7 +522,7 @@
 	)
 	(wire
 		(pts
-			(xy 21.59 40.64) (xy 26.67 40.64)
+			(xy 22.86 41.91) (xy 27.94 41.91)
 		)
 		(stroke
 			(width 0)
@@ -532,7 +532,7 @@
 	)
 	(wire
 		(pts
-			(xy 21.59 33.02) (xy 26.67 33.02)
+			(xy 22.86 34.29) (xy 27.94 34.29)
 		)
 		(stroke
 			(width 0)
@@ -542,7 +542,7 @@
 	)
 	(wire
 		(pts
-			(xy 27.94 35.56) (xy 26.67 35.56)
+			(xy 29.21 36.83) (xy 27.94 36.83)
 		)
 		(stroke
 			(width 0)
@@ -552,7 +552,7 @@
 	)
 	(wire
 		(pts
-			(xy 26.67 38.1) (xy 26.67 40.64)
+			(xy 27.94 39.37) (xy 27.94 41.91)
 		)
 		(stroke
 			(width 0)
@@ -560,9 +560,29 @@
 		)
 		(uuid "9088e304-679c-44d6-9918-4d5c65f74697")
 	)
+	(text "RTC"
+		(exclude_from_sim no)
+		(at 40.64 14.986 0)
+		(effects
+			(font
+				(size 1.27 1.27)
+			)
+		)
+		(uuid "65397007-86b1-4584-9c90-eaeace4142f3")
+	)
+	(text "C_L = 12.5 pF"
+		(exclude_from_sim no)
+		(at 24.13 49.53 0)
+		(effects
+			(font
+				(size 1.27 1.27)
+			)
+		)
+		(uuid "c7050e2b-ccbc-474e-bdbb-043bb65d8a60")
+	)
 	(global_label "SCL"
 		(shape bidirectional)
-		(at 27.94 27.94 180)
+		(at 29.21 29.21 180)
 		(fields_autoplaced yes)
 		(effects
 			(font
@@ -572,7 +592,7 @@
 		)
 		(uuid "85432774-864b-46f6-9e51-6f7812dc532e")
 		(property "Intersheetrefs" "${INTERSHEET_REFS}"
-			(at 20.3359 27.94 0)
+			(at 21.6059 29.21 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -584,7 +604,7 @@
 	)
 	(global_label "VCC"
 		(shape bidirectional)
-		(at 38.1 22.86 90)
+		(at 39.37 24.13 90)
 		(fields_autoplaced yes)
 		(effects
 			(font
@@ -594,7 +614,7 @@
 		)
 		(uuid "c193f012-5de1-4039-9753-d01b1db05039")
 		(property "Intersheetrefs" "${INTERSHEET_REFS}"
-			(at 38.1 15.1349 90)
+			(at 39.37 16.4049 90)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -606,7 +626,7 @@
 	)
 	(global_label "SDA"
 		(shape bidirectional)
-		(at 27.94 30.48 180)
+		(at 29.21 31.75 180)
 		(fields_autoplaced yes)
 		(effects
 			(font
@@ -616,7 +636,7 @@
 		)
 		(uuid "e7273fcb-1e85-45a2-b2bf-f34d26bbbc39")
 		(property "Intersheetrefs" "${INTERSHEET_REFS}"
-			(at 20.2754 30.48 0)
+			(at 21.5454 31.75 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -628,7 +648,7 @@
 	)
 	(symbol
 		(lib_id "power:GND")
-		(at 40.64 22.86 90)
+		(at 41.91 24.13 90)
 		(unit 1)
 		(exclude_from_sim no)
 		(in_bom yes)
@@ -637,7 +657,7 @@
 		(fields_autoplaced yes)
 		(uuid "09516625-9d8a-4edd-b976-d1ddb0ec8f11")
 		(property "Reference" "#PWR015"
-			(at 46.99 22.86 0)
+			(at 48.26 24.13 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -646,7 +666,7 @@
 			)
 		)
 		(property "Value" "GND"
-			(at 44.45 22.8599 90)
+			(at 45.72 24.1299 90)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -655,7 +675,7 @@
 			)
 		)
 		(property "Footprint" ""
-			(at 40.64 22.86 0)
+			(at 41.91 24.13 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -664,7 +684,7 @@
 			)
 		)
 		(property "Datasheet" ""
-			(at 40.64 22.86 0)
+			(at 41.91 24.13 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -673,7 +693,7 @@
 			)
 		)
 		(property "Description" "Power symbol creates a global label with name \"GND\" , ground"
-			(at 40.64 22.86 0)
+			(at 41.91 24.13 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -695,7 +715,7 @@
 	)
 	(symbol
 		(lib_id "Device:Crystal")
-		(at 21.59 36.83 90)
+		(at 22.86 38.1 90)
 		(unit 1)
 		(exclude_from_sim no)
 		(in_bom yes)
@@ -703,7 +723,7 @@
 		(dnp no)
 		(uuid "ca5e0b43-f39a-41cc-b240-3d8118779c7e")
 		(property "Reference" "Y2"
-			(at 20.828 45.466 90)
+			(at 22.098 46.736 90)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -712,7 +732,7 @@
 			)
 		)
 		(property "Value" "32.768 kHz"
-			(at 16.51 42.672 90)
+			(at 17.78 43.942 90)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -721,7 +741,7 @@
 			)
 		)
 		(property "Footprint" ""
-			(at 21.59 36.83 0)
+			(at 22.86 38.1 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -730,7 +750,7 @@
 			)
 		)
 		(property "Datasheet" "~"
-			(at 21.59 36.83 0)
+			(at 22.86 38.1 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -739,7 +759,7 @@
 			)
 		)
 		(property "Description" "Two pin crystal"
-			(at 21.59 36.83 0)
+			(at 22.86 38.1 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -764,7 +784,7 @@
 	)
 	(symbol
 		(lib_id "Timer_RTC:DS1307ZN+")
-		(at 40.64 33.02 0)
+		(at 41.91 34.29 0)
 		(unit 1)
 		(exclude_from_sim no)
 		(in_bom yes)
@@ -772,7 +792,7 @@
 		(dnp no)
 		(uuid "ce8da9b0-2cf3-40ec-8d11-167144dac60c")
 		(property "Reference" "U3"
-			(at 58.42 26.7014 0)
+			(at 59.69 27.9714 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -780,7 +800,7 @@
 			)
 		)
 		(property "Value" "DS1307ZN+"
-			(at 58.42 29.2414 0)
+			(at 59.69 30.5114 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -788,7 +808,7 @@
 			)
 		)
 		(property "Footprint" "Package_SO:SOIC-8_3.9x4.9mm_P1.27mm"
-			(at 40.64 45.72 0)
+			(at 41.91 46.99 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -797,7 +817,7 @@
 			)
 		)
 		(property "Datasheet" "https://datasheets.maximintegrated.com/en/ds/DS1307.pdf"
-			(at 40.64 33.02 0)
+			(at 41.91 34.29 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -806,7 +826,7 @@
 			)
 		)
 		(property "Description" "64 x 8, Serial, I2C Real-time clock, 4.5V to 5.5V VCC, -40°C to +85°C, SOIC-8"
-			(at 40.64 33.02 0)
+			(at 41.91 34.29 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -849,7 +869,7 @@
 	)
 	(symbol
 		(lib_id "power:GND")
-		(at 40.64 43.18 0)
+		(at 41.91 44.45 0)
 		(unit 1)
 		(exclude_from_sim no)
 		(in_bom yes)
@@ -858,7 +878,7 @@
 		(fields_autoplaced yes)
 		(uuid "de37a18d-c0fd-498f-a032-b0abad02369e")
 		(property "Reference" "#PWR016"
-			(at 40.64 49.53 0)
+			(at 41.91 50.8 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -867,7 +887,7 @@
 			)
 		)
 		(property "Value" "GND"
-			(at 40.64 48.26 0)
+			(at 41.91 49.53 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -875,7 +895,7 @@
 			)
 		)
 		(property "Footprint" ""
-			(at 40.64 43.18 0)
+			(at 41.91 44.45 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -884,7 +904,7 @@
 			)
 		)
 		(property "Datasheet" ""
-			(at 40.64 43.18 0)
+			(at 41.91 44.45 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -893,7 +913,7 @@
 			)
 		)
 		(property "Description" "Power symbol creates a global label with name \"GND\" , ground"
-			(at 40.64 43.18 0)
+			(at 41.91 44.45 0)
 			(effects
 				(font
 					(size 1.27 1.27)
